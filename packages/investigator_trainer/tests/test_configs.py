@@ -22,7 +22,6 @@ TARGETS = available(TARGETS_DIR)
 METHOD_FIELDS = (
     "reward_type",
     "kl_penalty_coef",
-    "judge_skip_refusals",
     "zero_reward_on_truncation",
 )
 # A target config must pin each of these.
@@ -93,9 +92,6 @@ def test_the_papers_method_values():
     # The paper put no threshold on the natural-response term, so the
     # config omits it and the default must stay None.
     assert prbo.prbo_natural_response_threshold is None
-    # The judge's refusal shortcut was on for PRBO runs and off for CoM.
-    assert prbo.judge_skip_refusals is True
-    assert cfg.judge_skip_refusals is False
 
 
 def test_the_papers_target_values():

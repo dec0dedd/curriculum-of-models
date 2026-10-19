@@ -79,14 +79,6 @@ def main() -> None:
     help="Target completions per prompt.",
 )
 @click.option(
-    "--skip-investigator-refusals/--send-investigator-refusals",
-    default=EvalConfig.skip_investigator_refusals,
-    help=(
-        "Record a refusal-shaped investigator prompt as a 0 without calling "
-        "the target (True), or send it anyway (False, the default)."
-    ),
-)
-@click.option(
     "--prompt-judge/--no-prompt-judge",
     "use_prompt_judge",
     default=EvalConfig.use_prompt_judge,
@@ -168,16 +160,7 @@ def _print_summary(summary: dict) -> None:
     # The gated columns only mean anything when the prompt judge ran; a run
     # without it would show a column of dashes, so leave them out entirely.
     gated = any(b.get("n_prompt_judged") for b in summary["behaviors"].values())
-    cols = [
-        "behavior_id",
-        "rows",
-        "inv. refusals",
-        "tgt refusals",
-        "errors",
-        "judged",
-        "mean",
-        "max",
-    ]
+    cols = ["behavior_id", "rows", "errors", "judged", "mean", "max"]
     if gated:
         cols += ["prompt fails", "mean gated"]
     for col in cols:
@@ -189,8 +172,6 @@ def _print_summary(summary: dict) -> None:
         cells = [
             behavior_id,
             str(b["n_rows"]),
-            str(b["n_investigator_refusals"]),
-            str(b["n_target_refusals"]),
             str(b["n_errors"]),
             str(b["n_judged"]),
             mean,

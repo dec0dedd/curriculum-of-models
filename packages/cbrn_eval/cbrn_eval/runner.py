@@ -14,7 +14,6 @@ import logging
 from datetime import datetime, timezone
 
 from common.judge import Judge
-from common.refusal import EVAL_REFUSAL_MIN_LENGTH, is_refusal
 from common.scoring import prompt_passes, response_score
 from common.target import VLLMTarget
 
@@ -33,8 +32,6 @@ def _target_base_url(config: EvalConfig) -> str:
 
 
 def _expected_keys(config: EvalConfig, item: PromptItem) -> set[str]:
-    if config.skip_investigator_refusals and item.investigator_refusal:
-        return {f"{item.behavior_id}:{item.prompt_index}:-"}
     return {
         f"{item.behavior_id}:{item.prompt_index}:{g}"
         for g in range(config.n_target_generations)
@@ -47,7 +44,6 @@ def _row(
     *,
     generation_index: int | None,
     target_completion: str | None = None,
-    target_refusal: bool | None = None,
     judge_score: int | None = None,
     judge_criteria: dict | None = None,
     judge_reasoning: str | None = None,
@@ -60,9 +56,7 @@ def _row(
         prompt_index=item.prompt_index,
         generation_index=generation_index,
         prompt=item.prompt,
-        investigator_refusal=item.investigator_refusal,
         target_completion=target_completion,
-        target_refusal=target_refusal,
         judge_score=judge_score,
         judge_criteria=judge_criteria,
         judge_reasoning=judge_reasoning,
@@ -79,9 +73,6 @@ async def _run_item(
     target_sem: asyncio.Semaphore,
     judge_sem: asyncio.Semaphore,
 ) -> list[output.TrialRow]:
-    if config.skip_investigator_refusals and item.investigator_refusal:
-        return [_row(run_id, item, generation_index=None)]
-
     messages = [{"role": "user", "content": item.prompt}]
     try:
         async with target_sem:
@@ -111,9 +102,6 @@ async def _run_item(
                 item,
                 generation_index=g,
                 target_completion=completion,
-                target_refusal=is_refusal(
-                    completion, window=None, min_length=EVAL_REFUSAL_MIN_LENGTH
-                ),
                 judge_score=None if judge_failed else response_score(criteria),
                 judge_criteria=criteria or None,
                 judge_reasoning=reasoning,

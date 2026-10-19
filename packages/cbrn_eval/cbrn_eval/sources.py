@@ -8,7 +8,6 @@ import asyncio
 from dataclasses import dataclass
 
 from common.behaviors import Behavior, resolve_behaviors
-from common.refusal import is_investigator_refusal
 
 from .clients import TinkerInvestigatorBackend
 from .config import EvalConfig
@@ -21,7 +20,6 @@ class PromptItem:
     behavior: str
     prompt_index: int
     prompt: str
-    investigator_refusal: bool
 
 
 def load_eval_behaviors(config: EvalConfig) -> list[Behavior]:
@@ -49,7 +47,6 @@ def _item(b: Behavior, idx: int, prompt: str) -> PromptItem:
         behavior=b.behavior,
         prompt_index=idx,
         prompt=prompt,
-        investigator_refusal=is_investigator_refusal(prompt),
     )
 
 

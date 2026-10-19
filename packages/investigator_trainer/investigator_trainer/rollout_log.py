@@ -2,7 +2,7 @@
 
 rollouts.jsonl holds one line per rollout. It is the only record of a run's
 training curve: reward and curriculum_scale per step give the learning and
-ladder curves, investigator_refused the refusal rate over training.
+ladder curves.
 """
 
 import json
@@ -86,7 +86,6 @@ class RolloutLog:
         investigator_prompt: str,
         reward: float,
         result: RewardResult | None,
-        investigator_refused: bool,
         investigator_clipped: bool,
         error: str | None = None,
     ) -> None:
@@ -103,7 +102,6 @@ class RolloutLog:
             # the env's truncation gate.
             "reward": reward,
             "formula_reward": result.reward if result else None,
-            "investigator_refused": investigator_refused,
             "investigator_clipped": investigator_clipped,
             "error": error,
         }

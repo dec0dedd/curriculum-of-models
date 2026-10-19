@@ -46,11 +46,6 @@ class EvalConfig:
     target_disable_reasoning: bool = True
     n_target_generations: int = 1
 
-    # Send an investigator prompt that looks like a refusal to the target
-    # anyway (False), or record it as a 0 without calls (True). The paper's
-    # later evals used False, earlier ones True; the prompt judge fails nearly
-    # every refusal, so both give the same final scores.
-    skip_investigator_refusals: bool = False
     # Gate the score on the prompt judge, as training does.
     use_prompt_judge: bool = True
 

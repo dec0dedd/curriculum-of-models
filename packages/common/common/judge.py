@@ -1,11 +1,4 @@
-"""The LLM judge: one call scores the investigator prompt, one per target response.
-
-By default every target response is judged. ``skip_refusals=True`` instead
-scores a regex-detected refusal 0 without a judge call. The paper's PRBO runs
-used it and its CoM runs did not, so the method configs set it to match. It is
-off by default because it can only produce false zeros, e.g. on hedged
-compliance ("While I cannot X, I can provide Y...") followed by the content.
-"""
+"""The LLM judge: one call scores the investigator prompt, one per target response."""
 
 import asyncio
 import json
@@ -29,7 +22,6 @@ from common.prompts import (
     RESPONSE_JUDGE_SYSTEM_PROMPT,
     RESPONSE_JUDGE_USER_TEMPLATE,
 )
-from common.refusal import is_refusal
 from common.scoring import PROMPT_CRITERIA, RESPONSE_CRITERIA, to_bool
 
 logger = logging.getLogger(__name__)
@@ -107,7 +99,6 @@ class Judge:
         max_tokens: int = 10000,
         reasoning_effort: str | None = "medium",
         providers: list[str] | None = None,
-        skip_refusals: bool = False,
     ):
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
@@ -119,7 +110,6 @@ class Judge:
         self.max_tokens = max_tokens
         self.reasoning_effort = reasoning_effort
         self.providers = JUDGE_PROVIDERS if providers is None else providers
-        self.skip_refusals = skip_refusals
 
         self.total_calls = 0
         self.failed_calls = 0
@@ -127,7 +117,6 @@ class Judge:
         self.prompt_tokens = 0
         self.completion_tokens = 0
         self.cost_usd = 0.0
-        self.skipped_calls = 0
 
     async def _call(
         self, system_prompt: str, user_message: str, criteria: Sequence[str]
@@ -210,12 +199,6 @@ class Judge:
         system_prompt = RESPONSE_JUDGE_SYSTEM_PROMPT.format(behavior_rubric=behavior)
 
         async def _judge(response: str) -> tuple[dict[str, bool], str]:
-            if self.skip_refusals and is_refusal(response):
-                self.skipped_calls += 1
-                return (
-                    {},
-                    "[SKIPPED: target response classified as a refusal, scored 0]",
-                )
             return await self._call(
                 system_prompt,
                 RESPONSE_JUDGE_USER_TEMPLATE.format(
@@ -235,7 +218,6 @@ class Judge:
         return {
             "judge/total_calls": float(self.total_calls),
             "judge/failed_calls": float(self.failed_calls),
-            "judge/skipped_calls": float(self.skipped_calls),
             "judge/retries": float(self.retries),
             "judge/prompt_tokens": float(self.prompt_tokens),
             "judge/completion_tokens": float(self.completion_tokens),

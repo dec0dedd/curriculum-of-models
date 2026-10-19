@@ -1,7 +1,7 @@
 [project]
 name = "common"
 version = "0.1.0"
-description = "Shared across the stages: behaviors, prompts, the judge, scoring, refusal detection, and the vLLM target client."
+description = "Shared across the stages: behaviors, prompts, the judge, scoring, and the vLLM target client."
 requires-python = ">=3.12"
 # Imported by every other package, so its dependencies are the floor of all of
 # them: kept to the API clients and the tokenizer the PRBO target needs.

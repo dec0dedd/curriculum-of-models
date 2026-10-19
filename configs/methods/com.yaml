@@ -7,4 +7,3 @@ curriculum_scales: [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
 curriculum_threshold: 60.0
 kl_penalty_coef: 0.5
 zero_reward_on_truncation: true
-judge_skip_refusals: false

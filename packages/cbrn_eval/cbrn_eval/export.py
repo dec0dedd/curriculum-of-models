@@ -18,7 +18,6 @@ RESULT_COLUMNS = [
     "generation_index",
     "judge_score",
     "final_score",
-    "target_refusal",
     "prompt_passed",
 ]
 
@@ -54,7 +53,6 @@ def export_results(run_id: str, rows: list[dict]) -> pl.DataFrame:
             pl.col("generation_index").cast(pl.Int64),
             pl.col("judge_score").cast(pl.Int64),
             pl.col("final_score").cast(pl.Int64),
-            pl.col("target_refusal").cast(pl.Boolean),
             pl.col("prompt_passed").cast(pl.Boolean),
         )
         .sort(["behavior_id", "prompt_index", "generation_index"])

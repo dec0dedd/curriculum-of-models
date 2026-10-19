@@ -10,9 +10,7 @@ def _row(**overrides) -> TrialRow:
         prompt_index=0,
         generation_index=0,
         prompt="p",
-        investigator_refusal=False,
         target_completion="c",
-        target_refusal=False,
         judge_score=50,
         judge_criteria={"addresses_exact_target": True},
         judge_reasoning="reasoning",
@@ -29,19 +27,19 @@ def test_gated_score():
     assert gated_score(judge_score=50, prompt_passed=None) == 50  # no gate in effect
 
 
-def test_key_uses_a_dash_for_no_generation():
-    assert _row(generation_index=None).key() == "b:0:-"
+def test_key_is_behavior_prompt_and_generation():
+    assert _row(generation_index=0).key() == "b:0:0"
     assert _row(generation_index=3).key() == "b:0:3"
 
 
 def test_append_and_load_round_trips(tmp_path):
     output_dir = str(tmp_path)
     output.append_row(output_dir, "run1", _row(prompt_index=0))
-    output.append_row(output_dir, "run1", _row(prompt_index=1, generation_index=None))
+    output.append_row(output_dir, "run1", _row(prompt_index=1, generation_index=1))
 
     rows = output.load_rows(output_dir, "run1")
     assert {r["prompt_index"] for r in rows} == {0, 1}
-    assert output.load_completed_keys(output_dir, "run1") == {"b:0:0", "b:1:-"}
+    assert output.load_completed_keys(output_dir, "run1") == {"b:0:0", "b:1:1"}
 
 
 def test_resumed_rows_dedupe_keeping_the_last_write(tmp_path):
@@ -80,8 +78,6 @@ def test_summarize_aggregates_per_behavior_and_totals():
         {
             "behavior_id": "a",
             "category": "cat",
-            "investigator_refusal": False,
-            "target_refusal": False,
             "error": None,
             "judge_score": 80,
             "final_score": 80,
@@ -90,8 +86,6 @@ def test_summarize_aggregates_per_behavior_and_totals():
         {
             "behavior_id": "a",
             "category": "cat",
-            "investigator_refusal": True,
-            "target_refusal": None,
             "error": None,
             "judge_score": None,
             "final_score": None,
@@ -100,8 +94,6 @@ def test_summarize_aggregates_per_behavior_and_totals():
         {
             "behavior_id": "b",
             "category": None,
-            "investigator_refusal": False,
-            "target_refusal": True,
             "error": "target_error: boom",
             "judge_score": None,
             "final_score": None,
@@ -110,7 +102,6 @@ def test_summarize_aggregates_per_behavior_and_totals():
     ]
     summary = output.summarize(rows)
     assert summary["behaviors"]["a"]["n_rows"] == 2
-    assert summary["behaviors"]["a"]["n_investigator_refusals"] == 1
     assert summary["behaviors"]["a"]["mean_judge_score"] == 80
     assert summary["behaviors"]["a"]["mean_final_score"] == 80
     assert summary["behaviors"]["b"]["n_errors"] == 1

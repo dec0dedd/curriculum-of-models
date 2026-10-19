@@ -20,8 +20,6 @@ def _fake_summary(run_id: str) -> dict:
         "behaviors": {
             "x": {
                 "n_rows": 1,
-                "n_investigator_refusals": 0,
-                "n_target_refusals": 0,
                 "n_errors": 0,
                 "n_judged": 1,
                 "mean_judge_score": 50.0,
@@ -155,9 +153,7 @@ def test_export_writes_csvs(tmp_path):
             prompt_index=0,
             generation_index=0,
             prompt="p",
-            investigator_refusal=False,
             target_completion="c",
-            target_refusal=False,
             judge_score=50,
             judge_criteria=None,
             judge_reasoning=None,

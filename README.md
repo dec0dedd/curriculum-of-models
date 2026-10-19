@@ -22,7 +22,7 @@ workspace, which would force a single shared environment.
 
 | Package | Stage | What it is |
 |---|---|---|
-| [`common`](packages/common) | — | behaviors, prompts, the judge, scoring, refusal detection, the target client |
+| [`common`](packages/common) | — | behaviors, prompts, the judge, scoring, the target client |
 | [`target_server`](packages/target_server) | 1 | serves the target and its LoRA ladder (vLLM, GPU) |
 | [`investigator_trainer`](packages/investigator_trainer) | 2 | the RL training: CoM, Black-box, PRBO |
 | [`cbrn_eval`](packages/cbrn_eval) | 3 | evaluates a checkpoint, exports results as CSV |
@@ -106,8 +106,8 @@ A plain argument is a config file, resolved as given or else against
 [`configs/`](configs/); anything with an `=` is a field override. The methods
 are [`com`, `blackbox`, `prbo`, `prbo_plain`](configs/methods/) and the targets
 [`gemma`, `gemma_reasoning`, `gpt_oss`](configs/targets/). Those files carry
-the paper's per-method values (KL penalty, the judge's refusal skip, the
-truncation gate) and per-target values (model, token budget, chat template),
+the paper's per-method values (KL penalty, the truncation gate) and
+per-target values (model, token budget, chat template),
 each written in exactly one place. A later config beats an earlier one, so a
 third file is the place for local settings like `vllm_base_url` — see
 [`config_file.py`](packages/investigator_trainer/investigator_trainer/config_file.py).

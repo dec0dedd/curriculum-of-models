@@ -16,7 +16,6 @@ from pathlib import Path
 
 from common.adapters import lora_name_for_scale, validate_ladder
 from common.judge import Judge
-from common.refusal import is_investigator_refusal
 from investigator_trainer.rewards.base import (
     RewardFormula,
     RewardResult,
@@ -102,11 +101,8 @@ class CurriculumReward(RewardFormula):
         )
 
         response_score = sum(verdicts.response_scores) / len(verdicts.response_scores)
-        # Hard gate: a refused or invalid prompt earns nothing.
-        gated = (
-            is_investigator_refusal(investigator_prompt) or not verdicts.prompt_passed
-        )
-        reward = 0.0 if gated else float(response_score)
+        # Hard gate: an invalid prompt earns nothing.
+        reward = 0.0 if not verdicts.prompt_passed else float(response_score)
         self._record(reward)
 
         return RewardResult(
@@ -119,7 +115,6 @@ class CurriculumReward(RewardFormula):
             metrics={
                 **base_metrics(
                     reward=reward,
-                    investigator_prompt=investigator_prompt,
                     verdicts=verdicts,
                     responses=responses,
                     response_score=float(response_score),

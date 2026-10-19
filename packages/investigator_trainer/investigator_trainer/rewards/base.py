@@ -16,7 +16,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 from common.judge import Judge
-from common.refusal import is_investigator_refusal, is_refusal
 from common.scoring import (
     PROMPT_CRITERIA,
     RESPONSE_CRITERIA,
@@ -77,7 +76,6 @@ async def judge_rollout(
 def base_metrics(
     *,
     reward: float,
-    investigator_prompt: str,
     verdicts: Verdicts,
     responses: list[str],
     response_score: float,
@@ -94,8 +92,6 @@ def base_metrics(
         "reward/prompt_passed": float(verdicts.prompt_passed),
         "reward/response_score": response_score,
         "target/is_empty": float(len(first_response.split()) < 10),
-        "target/response_is_refusal": float(is_refusal(first_response)),
-        "investigator/is_refusal": float(is_investigator_refusal(investigator_prompt)),
         **{
             f"judge/prompt_{c}": float(bool(verdicts.prompt_criteria.get(c, False)))
             for c in PROMPT_CRITERIA

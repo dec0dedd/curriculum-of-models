@@ -31,7 +31,6 @@ async def test_behaviors_source_sends_the_rubric_verbatim(behaviors_file):
         ("b", "Do B."),
     ]
     assert all(i.prompt_index == 0 for i in items)
-    assert all(not i.investigator_refusal for i in items)
 
 
 def test_investigator_source_total_scales_with_generations(behaviors_file):
@@ -78,18 +77,3 @@ async def test_investigator_source_generates_n_per_behavior(
     for item in items:
         by_behavior.setdefault(item.behavior_id, []).append(item.prompt_index)
     assert by_behavior == {"a": [0, 1, 2], "b": [0, 1, 2]}
-
-
-async def test_investigator_refusal_is_detected(monkeypatch, behaviors_file):
-    class RefusingBackend(_FakeBackend):
-        async def generate(self, behavior: str) -> str:
-            return "I can't help with that."
-
-    monkeypatch.setattr(sources, "TinkerInvestigatorBackend", RefusingBackend)
-    config = EvalConfig(
-        prompt_source="investigator",
-        behaviors_file=behaviors_file,
-        n_investigator_generations=1,
-    )
-    items = await build_prompt_items(config)
-    assert all(i.investigator_refusal for i in items)

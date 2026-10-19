@@ -82,8 +82,6 @@ class TrainConfig:
     reward_type: str = "curriculum"
     # Zero the reward of an investigator cut off at investigator_max_tokens.
     zero_reward_on_truncation: bool = False
-    # Score regex-detected target refusals 0 without a judge call.
-    judge_skip_refusals: bool = False
     curriculum_scales: list[float] = chz.field(
         default_factory=lambda: [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
     )
@@ -150,7 +148,6 @@ async def train(cfg: TrainConfig, config_files: Sequence[str | Path] = ()) -> No
         target_temperature=cfg.target_temperature,
         chat_template_kwargs=cfg.chat_template_kwargs,
         n_target_samples=cfg.n_target_samples,
-        judge_skip_refusals=cfg.judge_skip_refusals,
         reward_type=cfg.reward_type,
         zero_reward_on_truncation=cfg.zero_reward_on_truncation,
         curriculum_scales=cfg.curriculum_scales,

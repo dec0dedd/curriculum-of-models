@@ -3,7 +3,6 @@ from types import SimpleNamespace
 import pytest
 
 from common.behaviors import Behavior
-from common.judge import Judge
 from investigator_trainer.env import InvestigatorEnv
 from investigator_trainer.rewards import CurriculumReward
 from investigator_trainer.rollout_log import RolloutLog
@@ -63,24 +62,3 @@ async def test_a_failed_rollout_is_zeroed_not_raised(tmp_path):
     result = await make_env(tmp_path, target=BrokenTarget()).step([1])
     assert result.reward == 0.0
     assert result.metrics["target/rollout_failed"] == 1.0
-
-
-async def test_judge_skips_refusals_only_when_asked(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test")
-    calls = []
-
-    async def fake_call(self, system_prompt, user_message, criteria):
-        calls.append(user_message)
-        return {}, ""
-
-    monkeypatch.setattr(Judge, "_call", fake_call)
-    responses = ["I'm sorry, but I can't help with that.", "Step 1: ..."]
-
-    verdicts = await Judge(skip_refusals=True).score_responses(
-        behavior="b", responses=responses
-    )
-    assert len(calls) == 1 and verdicts[0][0] == {}
-
-    calls.clear()
-    await Judge().score_responses(behavior="b", responses=responses)
-    assert len(calls) == 2

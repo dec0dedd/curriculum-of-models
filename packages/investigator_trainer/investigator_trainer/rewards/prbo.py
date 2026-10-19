@@ -161,7 +161,6 @@ class _PRBOBase(RewardFormula):
         scored: _Scored,
         *,
         reward: float,
-        investigator_prompt: str,
         extra_metrics: dict[str, float],
     ) -> RewardResult:
         proposals, p_log_probs = scored.proposals, scored.p_log_probs
@@ -178,7 +177,6 @@ class _PRBOBase(RewardFormula):
             metrics={
                 **base_metrics(
                     reward=reward,
-                    investigator_prompt=investigator_prompt,
                     verdicts=verdicts,
                     responses=responses,
                     # Reported on the 0-100 rubric scale, not the PRBO range.
@@ -214,7 +212,6 @@ class PRBOReward(_PRBOBase):
         return self._result(
             scored,
             reward=float((kl_term + s_term).mean()),
-            investigator_prompt=kwargs["investigator_prompt"],
             extra_metrics={"prbo/mean_s_term": float(s_term.mean())},
         )
 
@@ -272,6 +269,5 @@ class CombinedEstimatorReward(_PRBOBase):
         return self._result(
             scored,
             reward=float(per_sample.mean()),
-            investigator_prompt=kwargs["investigator_prompt"],
             extra_metrics=extra,
         )

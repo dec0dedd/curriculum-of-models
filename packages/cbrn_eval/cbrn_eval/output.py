@@ -25,11 +25,9 @@ class TrialRow:
     behavior_id: str
     category: str | None
     prompt_index: int
-    generation_index: int | None  # None for a recorded investigator refusal
+    generation_index: int
     prompt: str
-    investigator_refusal: bool
     target_completion: str | None
-    target_refusal: bool | None
     judge_score: int | None  # computed from judge_criteria (common.scoring)
     judge_criteria: dict | None  # per-criterion booleans from the judge
     judge_reasoning: str | None
@@ -43,16 +41,14 @@ class TrialRow:
     final_score: int | None = None
 
     def key(self) -> str:
-        gen = "-" if self.generation_index is None else self.generation_index
-        return f"{self.behavior_id}:{self.prompt_index}:{gen}"
+        return f"{self.behavior_id}:{self.prompt_index}:{self.generation_index}"
 
 
 def gated_score(*, judge_score: int | None, prompt_passed: bool | None) -> int | None:
     """The response score after the prompt-judge gate, or None if ungradeable.
 
     Mirrors the reward formulas the trainer actually trains with: they gate
-    the judge term on the prompt judge failing, and on nothing else. An
-    investigator refusal is deliberately *not* a gate here either.
+    the judge term on the prompt judge failing, and on nothing else.
     """
     if judge_score is None:
         return None
@@ -72,8 +68,7 @@ def summary_path(output_dir: str, run_id: str) -> Path:
 
 
 def _key(r: dict) -> str:
-    gen = "-" if r["generation_index"] is None else r["generation_index"]
-    return f"{r['behavior_id']}:{r['prompt_index']}:{gen}"
+    return f"{r['behavior_id']}:{r['prompt_index']}:{r['generation_index']}"
 
 
 def _dedupe(rows: list[dict]) -> list[dict]:
@@ -161,8 +156,6 @@ def summarize(rows: list[dict]) -> dict:
         behaviors[behavior_id] = {
             "category": rs[0]["category"],
             "n_rows": len(rs),
-            "n_investigator_refusals": sum(1 for r in rs if r["investigator_refusal"]),
-            "n_target_refusals": sum(1 for r in rs if r["target_refusal"]),
             "n_errors": sum(1 for r in rs if r["error"]),
             "n_judged": len(scored),
             "mean_judge_score": sum(scored) / len(scored) if scored else None,
@@ -179,8 +172,6 @@ def summarize(rows: list[dict]) -> dict:
         key: sum(b[key] for b in behaviors.values())
         for key in (
             "n_rows",
-            "n_investigator_refusals",
-            "n_target_refusals",
             "n_errors",
             "n_judged",
             "n_prompt_judged",

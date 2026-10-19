@@ -44,15 +44,17 @@ async def test_com_reward_is_the_judge_score():
     assert result.metrics["curriculum/scale"] == 1.0
 
 
-async def test_com_gates_invalid_and_refused_prompts():
+async def test_com_gates_an_invalid_prompt_only():
     com = CurriculumReward([1.0, 0.0], threshold=60, rollouts_per_step=4)
     judge = FakeJudge({"alpha_1_00": 100}, prompt_passes=False)
     assert (await run(com, FakeTarget(), judge)).reward == 0.0
 
+    # A refusal-shaped prompt is not its own gate: it still earns the judge
+    # score as long as the prompt judge itself passes it.
     judge = FakeJudge({"alpha_1_00": 100})
     assert (
         await run(com, FakeTarget(), judge, prompt="I can't help with that.")
-    ).reward == 0.0
+    ).reward == 100
 
 
 async def test_com_advances_on_the_step_mean_only(tmp_path):

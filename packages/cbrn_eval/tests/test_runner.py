@@ -109,9 +109,7 @@ async def test_a_completed_item_is_not_reprocessed_on_resume(
                 prompt_index=0,
                 generation_index=g,
                 prompt="Do A.",
-                investigator_refusal=False,
                 target_completion="old",
-                target_refusal=False,
                 judge_score=99,
                 judge_criteria=None,
                 judge_reasoning=None,
@@ -143,37 +141,3 @@ async def test_a_target_failure_is_recorded_per_generation(
     assert all(r["target_completion"] is None for r in rows)
     assert all("target_error" in r["error"] for r in rows)
     assert judge.response_calls == []  # never reached
-
-
-async def test_skip_investigator_refusals_records_a_zero_without_calls(
-    monkeypatch, tmp_path
-):
-    behaviors_file = tmp_path / "behaviors.jsonl"
-    behaviors_file.write_text(
-        json.dumps(
-            {
-                "behavior_id": "refusing",
-                "category": None,
-                # The text itself opens with a refusal phrase, which is enough
-                # to trip is_investigator_refusal's narrow window.
-                "behavior": "I can't help with that request at all.",
-            }
-        )
-        + "\n"
-    )
-    target = FakeTarget()
-    judge = FakeJudge(default_score=50)
-    _patch(monkeypatch, target, judge)
-
-    config = _config(
-        tmp_path,
-        str(behaviors_file),
-        skip_investigator_refusals=True,
-    )
-    await run_sweep(config, "run1")
-
-    rows = output.load_rows(config.output_dir, "run1")
-    assert len(rows) == 1
-    assert rows[0]["generation_index"] is None
-    assert rows[0]["target_completion"] is None
-    assert target.generate_calls == []
