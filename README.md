@@ -87,6 +87,8 @@ To build the ladder by itself, or to build only the stages you need:
 
 ```bash
 uv run build-ladder --scales 1.0,0.8,0.6,0.4,0.2,0.0
+uv run build-ladder --source-repo noahrossi/gpt-oss-120b-refusal-r1-vllm \
+    --output-dir scaled_target_loras_gptoss
 ```
 
 **2. Train.** A run names one method and one target, and any `field=value`
@@ -115,7 +117,13 @@ A single-behavior run is one `behavior_ids`; leave it out to train on all 48.
 
 Each run writes `runs/<name>/` with `run_metadata.json` (full config, git
 state, the config files that produced it, command line), `rollouts.jsonl`,
-and the curriculum stage files.
+and the curriculum stage files. While a run is going, or after it finishes:
+
+```bash
+cat runs/<name>/run_metadata.json | python -m json.tool | head -30   # what it was run with
+tail -f runs/<name>/rollouts.jsonl | jq '.reward, .behavior_id'       # live reward per rollout
+cat runs/<name>/curriculum_stage*.txt                                 # current CoM stage(s), if curriculum
+```
 
 **3. Evaluate** the resulting checkpoint, then export its scores:
 
@@ -133,6 +141,30 @@ summary.json}`, where `run_id` hashes every result-affecting input, so a
 completed run is not repeated and an interrupted one resumes. `export` then
 writes one CSV per run plus an index, so the numbers can be tabulated with
 whatever you like. Plotting lives in the paper repo, not here.
+
+```bash
+cat eval_results/exports/index.csv                    # one row per run: mean score, etc.
+column -s, -t < eval_results/exports/<run_id>.csv | less -S   # the full per-prompt scores
+```
+
+## Useful commands
+
+From the repo root:
+
+```bash
+make lint                          # ruff check, across every package
+make format                        # ruff format, across every package
+jq -r .behavior_id data/behaviors/transluce_cbrn.jsonl   # every behavior_id to pick from
+```
+
+Inside a package (`cd packages/<pkg>` first; each has its own `.venv`):
+
+```bash
+uv run pytest -k <name>            # a single test
+uv run com-train --help            # investigator_trainer: methods/targets + every field
+uv run com-eval sweep --help       # cbrn_eval: every sweep flag, with its default
+uv run build-ladder --help         # target_server: ladder-builder flags
+```
 
 ## Status
 
