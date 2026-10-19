@@ -10,16 +10,28 @@ requires-python = ">=3.12"
 # tinker-cookbook outside its declared range. Two environments need no
 # override, and the HTTP boundary between them is already how the paper's runs
 # were served.
+# Building the ladder needs none of vLLM, so vLLM is an opt-in group: these
+# deps alone install and test anywhere, including macOS and CPU-only Linux.
 dependencies = [
+    "common",
+    "click>=8.1",
+    "hf-transfer>=0.1.9",
     "huggingface-hub",
-    "peft>=0.15",
-    "vllm>=0.29.0",
 ]
 
+[project.scripts]
+build-ladder = "target_server.build_ladder:main"
+
 [dependency-groups]
-dev = ["ruff>=0.15"]
+dev = ["pytest>=8.0", "ruff>=0.15"]
+# Serving. Linux + CUDA only; `make sync-server` installs it.
+vllm = ["vllm>=0.29.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.uv.sources]
+common = { path = "../common", editable = true }
 # vLLM 0.29.0 plus a fix for MoE LoRA under tensor/data parallelism: stock 0.29
 # slices each rank's expert LoRA at the kernel-padded width, so on more than
 # one GPU the gpt-oss refusal adapter silently misses about half of its experts.
@@ -33,3 +45,6 @@ extra-build-variables = { vllm = { VLLM_USE_PRECOMPILED = "1", VLLM_PRECOMPILED_
 [build-system]
 requires = ["uv_build>=0.11.7,<0.12.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""

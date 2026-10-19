@@ -7,31 +7,27 @@
 #
 # Don't run `uv run pytest` from the repo root: there is no root project.
 
-PKGS := common investigator_trainer cbrn_eval sft_investigator sft_lora_pipeline
-TEST_PKGS := common investigator_trainer
-# Linux + CUDA only, and deliberately outside PKGS: syncing it on a laptop
-# tries to build vLLM.
-GPU_PKGS := target_server sft_lora_pipeline
+PKGS := common investigator_trainer cbrn_eval target_server
 
 .PHONY: help lock sync test lint format sync-server
 help:
-	@echo "  make sync         - uv sync every CPU package ($(words $(PKGS)) of them)"
-	@echo "  make test         - pytest in $(TEST_PKGS)"
-	@echo "  make lock         - uv lock every package, including the GPU ones"
+	@echo "  make sync         - uv sync every package ($(words $(PKGS)) of them)"
+	@echo "  make test         - pytest in every package"
+	@echo "  make lock         - uv lock every package"
 	@echo "  make lint/format  - ruff across the repo"
 	@echo "  make sync-server  - uv sync target_server (Linux + CUDA only)"
 
 lock:
-	@$(foreach p,$(PKGS) $(GPU_PKGS),echo ">> lock $(p)"; (cd packages/$(p) && uv lock) || exit 1;)
+	@$(foreach p,$(PKGS),echo ">> lock $(p)"; (cd packages/$(p) && uv lock) || exit 1;)
 
 sync:
 	@$(foreach p,$(PKGS),echo ">> sync $(p)"; (cd packages/$(p) && uv sync) || exit 1;)
 
 sync-server:
-	cd packages/target_server && uv sync
+	cd packages/target_server && uv sync --group vllm
 
 test:
-	@$(foreach p,$(TEST_PKGS),echo ">> pytest $(p)"; (cd packages/$(p) && uv run pytest -q) || exit 1;)
+	@$(foreach p,$(PKGS),echo ">> pytest $(p)"; (cd packages/$(p) && uv run pytest -q) || exit 1;)
 
 lint:
 	uvx ruff@0.15.6 check packages

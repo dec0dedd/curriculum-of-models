@@ -38,7 +38,8 @@ class EvalConfig:
 
     # Target, served by vLLM. target_model is the served name: the base model
     # id, or an adapter such as alpha_1_0 for the refusal-weakened ceiling.
-    target_base_url: str = "http://localhost:8000/v1"
+    # No trailing /v1 -- common.target.VLLMTarget appends it itself.
+    target_base_url: str = "http://localhost:8000"
     target_model: str = "google/gemma-4-31B-it"
     target_max_tokens: int = 7000
     target_temperature: float = 1.0

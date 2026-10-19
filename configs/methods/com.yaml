@@ -1,0 +1,10 @@
+# Curriculum of Models: a ladder of progressively less refusal-free targets,
+# one ladder per behavior, advancing a stage when the behavior scores above
+# curriculum_threshold. Scale 1.0 is the trained adapter at full strength and
+# 0.0 is the base model, so the last stage is the black-box setting.
+reward_type: curriculum
+curriculum_scales: [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
+curriculum_threshold: 60.0
+kl_penalty_coef: 0.5
+zero_reward_on_truncation: true
+judge_skip_refusals: false

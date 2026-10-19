@@ -8,6 +8,7 @@ ladder curves, investigator_refused the refusal rate over training.
 import json
 import subprocess
 import sys
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -33,13 +34,26 @@ def _version(package: str) -> str:
         return "not installed"
 
 
-def save_run_metadata(log_dir: str | Path, config: object) -> None:
-    """The full config, code version and command line, for tracing a run back."""
+def save_run_metadata(
+    log_dir: str | Path,
+    config: object,
+    config_files: Sequence[str | Path] = (),
+) -> None:
+    """The full config, code version and command line, for tracing a run back.
+
+    ``config_files`` are the method/target TOML files that produced ``config``,
+    in the order they were applied (see ``train.parse_args``). The resolved
+    config is already in ``config``, so this is for the question the resolved
+    values alone cannot answer: which files on disk, as of this run, are
+    responsible for it. ``command`` records the same paths as typed, which may
+    differ (relative, or resolved against configs/) from what is listed here.
+    """
     path = Path(log_dir) / "run_metadata.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     metadata = {
         "timestamp": datetime.now(UTC).isoformat(),
         "config": chz.asdict(config),
+        "config_files": [str(Path(p).resolve()) for p in config_files],
         "git": {
             "commit": _git("rev-parse", "HEAD"),
             "is_dirty": bool(_git("status", "--porcelain")),

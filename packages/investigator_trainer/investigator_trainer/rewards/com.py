@@ -14,6 +14,7 @@ import logging
 from collections.abc import Sequence
 from pathlib import Path
 
+from common.adapters import lora_name_for_scale, validate_ladder
 from common.judge import Judge
 from common.refusal import is_investigator_refusal
 from investigator_trainer.rewards.base import (
@@ -27,32 +28,6 @@ from common.target import VLLMTarget
 logger = logging.getLogger(__name__)
 
 
-def scale_to_adapter_name(scale: float) -> str | None:
-    """The vLLM LoRA name served for a ladder scale; None is the base model.
-
-    Must match scripts/build_lora_ladder.py: ``alpha_<scale>`` with ``.`` as
-    ``_``, e.g. 0.6 -> ``alpha_0_6``. Rounding strips float noise.
-    """
-    if scale == 0.0:
-        return None
-    return f"alpha_{str(round(float(scale), 10)).replace('.', '_')}"
-
-
-def validate_curriculum_scales(scales: Sequence[float]) -> None:
-    """Non-empty, in [0, 1], strictly decreasing (easiest first)."""
-    if not scales:
-        raise ValueError("curriculum_scales must contain at least one scale.")
-    if any(not 0.0 <= s <= 1.0 for s in scales):
-        raise ValueError(
-            f"Every curriculum scale must be in [0, 1]; got {list(scales)}."
-        )
-    if any(a <= b for a, b in zip(scales, scales[1:])):
-        raise ValueError(
-            "curriculum_scales must be strictly decreasing (easiest first, "
-            f"hardest last); got {list(scales)}."
-        )
-
-
 class CurriculumReward(RewardFormula):
     def __init__(
         self,
@@ -63,9 +38,9 @@ class CurriculumReward(RewardFormula):
         stage_file: Path | None = None,
         label: str | None = None,
     ):
-        validate_curriculum_scales(scales)
+        validate_ladder(scales)
         self.scales = list(scales)
-        self.adapters = [scale_to_adapter_name(s) for s in self.scales]
+        self.adapters = [lora_name_for_scale(s) for s in self.scales]
         self.threshold = threshold
         # A behavior contributes one group per step it is scheduled into, so
         # this is group_size: the stage decision is that group's mean.

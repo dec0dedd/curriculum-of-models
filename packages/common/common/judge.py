@@ -2,7 +2,7 @@
 
 By default every target response is judged. ``skip_refusals=True`` instead
 scores a regex-detected refusal 0 without a judge call. The paper's PRBO runs
-used it and its CoM runs did not, so the method presets set it to match. It is
+used it and its CoM runs did not, so the method configs set it to match. It is
 off by default because it can only produce false zeros, e.g. on hedged
 compliance ("While I cannot X, I can provide Y...") followed by the content.
 """

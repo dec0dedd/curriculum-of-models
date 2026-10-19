@@ -7,7 +7,6 @@ from investigator_trainer.rewards import (
     CurriculumReward,
     PRBOReward,
 )
-from investigator_trainer.rewards.com import scale_to_adapter_name
 from investigator_trainer.rewards.prbo import to_prbo_range
 from tests.fakes import FakeJudge, FakeTarget
 
@@ -28,15 +27,10 @@ async def run(formula, target, judge, n=1, prompt=PROMPT):
 # ── CoM ──────────────────────────────────────────────────────────────────────
 
 
-def test_adapter_names():
-    assert scale_to_adapter_name(1.0) == "alpha_1_0"
-    assert scale_to_adapter_name(0.6) == "alpha_0_6"
-    assert scale_to_adapter_name(3 * 0.2) == "alpha_0_6"
-    assert scale_to_adapter_name(0.0) is None
-
-
 @pytest.mark.parametrize("scales", [[], [0.5, 0.5], [0.0, 1.0], [1.2, 0.0]])
-def test_invalid_ladders_are_rejected(scales):
+def test_the_reward_rejects_an_invalid_ladder(scales):
+    # The contract itself is tested in common; this is the reward refusing to
+    # be built on one.
     with pytest.raises(ValueError):
         CurriculumReward(scales, threshold=60, rollouts_per_step=1)
 

@@ -1,0 +1,5 @@
+# gpt-oss always reasons -- vLLM returns the final channel as the response and
+# PRBO scores only the response tokens -- so it has no non-reasoning variant.
+target_model_id: openai/gpt-oss-120b
+target_max_tokens: 7000
+chat_template_kwargs: {}

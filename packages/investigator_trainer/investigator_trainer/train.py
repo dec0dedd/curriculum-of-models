@@ -1,16 +1,18 @@
 """Train an investigator with CoM, Black-box, or PRBO.
 
-    com-train preset=com,gemma behavior_ids=transluce_tabun
-    com-train preset=prbo,gpt_oss behavior_ids=transluce_hmtd
-    com-train preset=blackbox,gemma behavior_ids=transluce_vx load_checkpoint_path=tinker://...
+    com-train methods/com.yaml targets/gemma.yaml behavior_ids=transluce_tabun
 
-Presets (``rl/presets.py``) apply in order, then every other ``field=value``
-overrides them. A single-behavior run is ``behavior_ids=<one id>``; leave it
-out to train on every behavior in ``behaviors_file``.
+A run names one method and one target, resolved against ``configs/``. Those
+files hold the values the paper's runs used; a later config beats an earlier
+one, and every ``field=value`` after them beats all of them.
+
+A single-behavior run is ``behavior_ids=<one id>``; leave it out to train on
+every behavior in ``behaviors_file``.
 """
 
 import asyncio
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
@@ -21,13 +23,14 @@ from tinker_cookbook import cli_utils
 from tinker_cookbook.rl.train import Config, KLReferenceConfig
 from tinker_cookbook.rl.train import main as tinker_train
 
+from investigator_trainer.config_file import ConfigFileError, available, load_config
 from investigator_trainer.env import InvestigatorDatasetBuilder
-from investigator_trainer.presets import METHODS, PRESETS, TARGETS
 from investigator_trainer.rewards.prbo import DEFAULT_PROPOSAL_LORA
 from investigator_trainer.rollout_log import save_run_metadata
 
 RECIPE_NAME = "curriculum_of_models"
 REPO_ROOT = Path(__file__).resolve().parents[3]
+CONFIGS_DIR = REPO_ROOT / "configs"
 
 
 @chz.chz
@@ -71,11 +74,11 @@ class TrainConfig:
     lora_rank: int = 32
     investigator_max_tokens: int = 512
     temperature: float = 1.0
-    # Method-dependent; every method preset sets it.
+    # Method-dependent; every config in configs/methods/ sets it.
     kl_penalty_coef: float = 0.0
     num_substeps: int = 1
 
-    # ── Method (set by the method presets) ────────────────────────────────────
+    # ── Method (set by configs/methods/*.yaml) ────────────────────────────────
     reward_type: str = "curriculum"
     # Zero the reward of an investigator cut off at investigator_max_tokens.
     zero_reward_on_truncation: bool = False
@@ -120,7 +123,7 @@ def validate(cfg: TrainConfig) -> None:
             )
 
 
-async def train(cfg: TrainConfig) -> None:
+async def train(cfg: TrainConfig, config_files: Sequence[str | Path] = ()) -> None:
     validate(cfg)
     run_name = cfg.run_name or (
         f"{cfg.reward_type}-{cfg.target_model_id.split('/')[-1]}-"
@@ -128,7 +131,7 @@ async def train(cfg: TrainConfig) -> None:
     )
     log_path = cfg.log_path or str(REPO_ROOT / "runs" / run_name)
     cli_utils.check_log_dir(log_path, behavior_if_exists=cfg.behavior_if_log_dir_exists)
-    save_run_metadata(log_path, cfg)
+    save_run_metadata(log_path, cfg, config_files=config_files)
 
     dataset_builder = InvestigatorDatasetBuilder(
         behavior_rubric=cfg.behavior_rubric,
@@ -188,50 +191,64 @@ async def train(cfg: TrainConfig) -> None:
     await tinker_train(config)
 
 
-USAGE = f"""\
-Train the investigator. Compose one method preset with one target preset:
+def usage() -> str:
+    methods = ", ".join(available(CONFIGS_DIR / "methods")) or "(none found)"
+    targets = ", ".join(available(CONFIGS_DIR / "targets")) or "(none found)"
+    return f"""\
+Train the investigator. Name one method and one target:
 
-    com-train preset=<method>,<target> [field=value ...]
+    com-train methods/<method>.yaml targets/<target>.yaml [field=value ...]
 
-  methods  {", ".join(METHODS)}
-  targets  {", ".join(TARGETS)}
+  methods  {methods}
+  targets  {targets}
 
-The presets set the paper's values for that combination; every field=value
-after them overrides. Each field below can be set that way.
+A plain argument is a config file, resolved as given or else against
+{CONFIGS_DIR}. Those files carry the paper's values. A later
+config beats an earlier one, and every field=value beats all of them. Each
+field below can be set that way.
 
-    com-train preset=com,gemma behavior_ids=transluce_tabun
-    com-train preset=prbo,gpt_oss group_size=256 max_steps=200
+    com-train methods/com.yaml targets/gemma.yaml behavior_ids=transluce_tabun
+    com-train methods/prbo.yaml targets/gpt_oss.yaml group_size=256
 """
 
 
-def parse_args(argv: list[str]) -> TrainConfig:
-    """``preset=a,b`` applies presets a then b; every other arg overrides them."""
+def parse_args(argv: list[str], config_files: list[Path] | None = None) -> TrainConfig:
+    """A plain argument is a config file; ``field=value`` and flags go to chz.
+
+    If given, ``config_files`` collects each resolved config path, in the
+    order applied, for ``run_metadata.json`` provenance.
+    """
     blueprint = chz.Blueprint(TrainConfig)
-    rest = []
+    fields = set(TrainConfig.__chz_fields__)
+    rest: list[str] = []
     for arg in argv:
-        if arg.startswith("preset="):
-            for name in arg.removeprefix("preset=").split(","):
-                if name not in PRESETS:
-                    raise SystemExit(
-                        f"Unknown preset {name!r}. Known: {', '.join(PRESETS)}"
-                    )
-                blueprint = blueprint.apply(PRESETS[name])
-        else:
+        if arg.startswith("-") or "=" in arg:
             rest.append(arg)
+            continue
+        path = Path(arg)
+        if not path.exists():
+            path = CONFIGS_DIR / arg
+        try:
+            blueprint = blueprint.apply(load_config(path, fields))
+        except ConfigFileError as exc:
+            raise SystemExit(str(exc)) from None
+        if config_files is not None:
+            config_files.append(path.resolve())
     return blueprint.apply_from_argv(rest).make()
 
 
 def main() -> None:
     load_dotenv()
+    config_files: list[Path] = []
     try:
-        cfg = parse_args(sys.argv[1:])
+        cfg = parse_args(sys.argv[1:], config_files)
     except EntrypointHelpException as help_text:
-        # chz prints its field table by raising. Lead with the preset usage,
+        # chz prints its field table by raising. Lead with the config usage,
         # which is the actual interface and is not a field.
-        print(USAGE)
+        print(usage())
         print(help_text.args[0] if help_text.args else "")
         raise SystemExit(0) from None
-    asyncio.run(train(cfg))
+    asyncio.run(train(cfg, config_files))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,9 @@
+# target_max_tokens: the paper's CoM runs used 2400 (6000 with reasoning) and
+# its PRBO runs 7000 (14000 with reasoning). Responses end at EOS well below
+# either, so both methods use the PRBO values here. Keep this below the
+# MAX_MODEL_LEN the target is served with, minus the prompt: vLLM rejects a
+# request that exceeds the context rather than truncating it.
+target_model_id: google/gemma-4-31B-it
+target_max_tokens: 7000
+chat_template_kwargs:
+  enable_thinking: false

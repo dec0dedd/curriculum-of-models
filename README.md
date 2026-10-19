@@ -23,13 +23,16 @@ workspace, which would force a single shared environment.
 | Package | Stage | What it is |
 |---|---|---|
 | [`common`](packages/common) | — | behaviors, prompts, the judge, scoring, refusal detection, the target client |
-| [`sft_lora_pipeline`](packages/sft_lora_pipeline) | 1 | Gemma refusal-abliteration LoRA (trl + peft, GPU) |
-| [`sft_investigator`](packages/sft_investigator) | 1 | investigator warm start, and the gpt-oss refusal LoRA (Tinker) |
-| [`target_server`](packages/target_server) | 2 | serves the target and its LoRA ladder (vLLM, GPU) |
-| [`investigator_trainer`](packages/investigator_trainer) | 3 | the RL training: CoM, Black-box, PRBO |
-| [`cbrn_eval`](packages/cbrn_eval) | 4 | evaluates a checkpoint, exports results as CSV |
+| [`target_server`](packages/target_server) | 1 | serves the target and its LoRA ladder (vLLM, GPU) |
+| [`investigator_trainer`](packages/investigator_trainer) | 2 | the RL training: CoM, Black-box, PRBO |
+| [`cbrn_eval`](packages/cbrn_eval) | 3 | evaluates a checkpoint, exports results as CSV |
 
 `data/behaviors/` is shared: the trainer and the eval both read it.
+
+The refusal-free LoRA adapters themselves (Gemma and gpt-oss) are pre-trained
+and not part of this repo; `target_server`'s ladder builder downloads them
+from HF by default (`noahrossi/gemma-4-31b-it-refusal-free-v2` and
+`noahrossi/gpt-oss-120b-refusal-r1-vllm`).
 
 ### Why the packages are separate
 
@@ -54,7 +57,7 @@ runs.
 cp .env.example .env     # OPENROUTER_API_KEY, TINKER_API_KEY, HF_TOKEN, WANDB_API_KEY
 make sync                # every CPU package
 make sync-server         # vLLM, Linux + CUDA only
-make test                # 54 tests
+make test                # 168 tests
 ```
 
 Per package: `cd packages/<pkg> && uv sync && uv run pytest`. Don't run
@@ -62,41 +65,59 @@ Per package: `cd packages/<pkg> && uv sync && uv run pytest`. Don't run
 
 ## Reproducing a run
 
-Stage 3 works today. Stages 1, 2 and 4 are still being ported, and their
-commands below are the intended interface, not yet a working one. Until then,
-train against a target you serve yourself with vLLM at `vllm_base_url`, with
-the ladder adapters registered under the names `alpha_1_0`, `alpha_0_8`, ... .
+All three stages work today.
 
-**1. Serve the target** in its own shell, with the LoRA ladder loaded
-(*not yet ported*):
+**1. Serve the target** in its own shell. The script downloads the
+pre-trained refusal-free adapter from HF and builds the ladder from it on
+first run, then starts vLLM with every stage registered:
 
 ```bash
 cd packages/target_server
+uv sync --group vllm              # once; Linux + CUDA
 ./scripts/serve_gemma.sh          # or ./scripts/serve_gpt_oss.sh
 ```
 
-**2. Train.** A method preset and a target preset compose, and any
-`field=value` after them overrides:
+Defaults are two GPUs (`TP=2 DP=1`); the paper's Gemma runs used four as
+`TP=2 DP=2`. One GPU is `TP=1 CUDA_VISIBLE_DEVICES=0`. `REASONING=on` serves
+Gemma with thinking enabled and raises the context accordingly — `MAX_MODEL_LEN`
+has to cover the investigator prompt plus `target_max_tokens`, because vLLM
+rejects a request that exceeds it rather than truncating.
+
+To build the ladder by itself, or to build only the stages you need:
+
+```bash
+uv run build-ladder --scales 1.0,0.8,0.6,0.4,0.2,0.0
+```
+
+**2. Train.** A run names one method and one target, and any `field=value`
+after them overrides both:
 
 ```bash
 cd packages/investigator_trainer
-uv run com-train preset=com,gemma  behavior_ids=transluce_tabun
-uv run com-train preset=prbo,gpt_oss behavior_ids=transluce_hmtd
-uv run com-train preset=blackbox,gemma behavior_ids=transluce_vx \
+uv run com-train methods/com.yaml      targets/gemma.yaml   behavior_ids=transluce_tabun
+uv run com-train methods/prbo.yaml     targets/gpt_oss.yaml behavior_ids=transluce_hmtd
+uv run com-train methods/blackbox.yaml targets/gemma.yaml   behavior_ids=transluce_vx \
     load_checkpoint_path=tinker://...
 ```
 
-Methods are `com`, `blackbox`, `prbo`, `prbo_plain`; targets are `gemma`,
-`gemma_reasoning`, `gpt_oss`. The presets carry the paper's per-method values
-(KL penalty, the judge's refusal skip, the truncation gate) — see
-[`presets.py`](packages/investigator_trainer/investigator_trainer/presets.py).
+A plain argument is a config file, resolved as given or else against
+[`configs/`](configs/); anything with an `=` is a field override. The methods
+are [`com`, `blackbox`, `prbo`, `prbo_plain`](configs/methods/) and the targets
+[`gemma`, `gemma_reasoning`, `gpt_oss`](configs/targets/). Those files carry
+the paper's per-method values (KL penalty, the judge's refusal skip, the
+truncation gate) and per-target values (model, token budget, chat template),
+each written in exactly one place. A later config beats an earlier one, so a
+third file is the place for local settings like `vllm_base_url` — see
+[`config_file.py`](packages/investigator_trainer/investigator_trainer/config_file.py).
+
 A single-behavior run is one `behavior_ids`; leave it out to train on all 48.
+`uv run com-train --help` lists the configs and every field.
 
 Each run writes `runs/<name>/` with `run_metadata.json` (full config, git
-state, command line), `rollouts.jsonl`, and the curriculum stage files.
+state, the config files that produced it, command line), `rollouts.jsonl`,
+and the curriculum stage files.
 
-**3. Evaluate** the resulting checkpoint, then export its scores
-(*not yet ported*):
+**3. Evaluate** the resulting checkpoint, then export its scores:
 
 ```bash
 cd packages/cbrn_eval
@@ -104,17 +125,22 @@ uv run com-eval sweep --investigator-model tinker://... --target-model google/ge
 uv run com-eval export
 ```
 
-That writes one CSV per run plus an index, so the numbers can be tabulated
-with whatever you like. Plotting lives in the paper repo, not here.
+`sweep` samples investigator prompts (or, with `--prompt-source=behaviors`,
+sends each behavior verbatim as a direct-ask baseline), rolls them out
+against the target, and judges them; `--behaviors-file`/`--behavior-ids`
+mirror the trainer's. Results land in `eval_results/<run_id>_{full.parquet,
+summary.json}`, where `run_id` hashes every result-affecting input, so a
+completed run is not repeated and an interrupted one resumes. `export` then
+writes one CSV per run plus an index, so the numbers can be tabulated with
+whatever you like. Plotting lives in the paper repo, not here.
 
 ## Status
 
 | Stage | Package | State |
 |---|---|---|
-| 3, training | `investigator_trainer`, `common` | complete, 74 tests |
-| 1, SFT | `sft_investigator`, `sft_lora_pipeline` | packaged and pinned, not yet ported |
-| 2, serving | `target_server` | packaged and pinned, not yet ported |
-| 4, eval | `cbrn_eval` | config and run identity only |
+| 1, serving | `target_server` | complete, 14 tests |
+| 2, training | `investigator_trainer`, `common` | complete, 113 tests |
+| 3, eval | `cbrn_eval` | complete, 41 tests |
 
 ## The paper's runs
 
@@ -123,5 +149,4 @@ estimator) and 5 plain PRBO, across both targets with reasoning on and off.
 Single-behavior runs trained on one behavior, which here is
 `behavior_ids=<one id>`. Evaluation sampled 256 investigator prompts per
 behavior with one target completion each, with the prompt judge on. The
-per-method values are in
-[`presets.py`](packages/investigator_trainer/investigator_trainer/presets.py).
+per-method values are in [`configs/methods/`](configs/methods/).
