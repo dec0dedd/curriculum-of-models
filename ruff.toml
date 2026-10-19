@@ -1,0 +1,12 @@
+# Shared lint/format config for all packages in the monorepo.
+# Each package is linted in place; ruff discovers this file by walking up from
+# the file being checked.
+
+target-version = "py312"
+line-length = 88
+
+[lint]
+# Default rule set (pyflakes + a pragmatic slice of pycodestyle). Kept
+# deliberately light so the borrowed research packages stay clean without a
+# large reformatting churn.
+select = ["E4", "E7", "E9", "F"]

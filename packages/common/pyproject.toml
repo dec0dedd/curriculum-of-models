@@ -1,0 +1,35 @@
+[project]
+name = "common"
+version = "0.1.0"
+description = "Shared across the stages: behaviors, prompts, the judge, scoring, refusal detection, and the vLLM target client."
+requires-python = ">=3.12"
+# Imported by every other package, so its dependencies are the floor of all of
+# them: kept to the API clients and the tokenizer the PRBO target needs.
+dependencies = [
+    "openai",
+    "tenacity",
+    "torch",
+    "transformers",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "pytest-asyncio>=1.0", "ruff>=0.15"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.uv]
+# Not a dependency, a ceiling. Every consumer of this package pulls
+# tinker-cookbook, which declares transformers <= 5.5.4, so that is the version
+# the stages actually run. Without this, `common` alone would resolve to the
+# newest transformers and its tests would pass against a version nothing else
+# uses -- the drift this shared package exists to prevent.
+constraint-dependencies = ["transformers<=5.5.4"]
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""

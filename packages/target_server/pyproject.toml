@@ -1,0 +1,35 @@
+[project]
+name = "target-server"
+version = "0.1.0"
+description = "Serves the target model with the refusal-free LoRA ladder loaded, for the trainer and the eval to call over HTTP."
+requires-python = ">=3.12"
+# vLLM only. The trainer and the eval reach the served model over HTTP, so
+# nothing here is imported by them -- which is the point: vLLM 0.29 needs
+# transformers >= 5.10.4, and tinker-cookbook declares transformers <= 5.5.4.
+# One environment for both can only satisfy that with an override that puts
+# tinker-cookbook outside its declared range. Two environments need no
+# override, and the HTTP boundary between them is already how the paper's runs
+# were served.
+dependencies = [
+    "huggingface-hub",
+    "peft>=0.15",
+    "vllm>=0.29.0",
+]
+
+[dependency-groups]
+dev = ["ruff>=0.15"]
+
+[tool.uv.sources]
+# vLLM 0.29.0 plus a fix for MoE LoRA under tensor/data parallelism: stock 0.29
+# slices each rank's expert LoRA at the kernel-padded width, so on more than
+# one GPU the gpt-oss refusal adapter silently misses about half of its experts.
+vllm = { git = "https://github.com/noahrossi/vllm", branch = "nr/fix-gpt-oss-lora-tp-bug" }
+
+[tool.uv]
+# The fork only changes Python, so take the compiled kernels from the official
+# 0.29.0 wheel instead of building CUDA from source.
+extra-build-variables = { vllm = { VLLM_USE_PRECOMPILED = "1", VLLM_PRECOMPILED_WHEEL_LOCATION = "https://files.pythonhosted.org/packages/ca/09/7f79450e21bd1c2a0897ab946a544816a4f7e04c54f0ca49849b14b12d6a/vllm-0.29.0-cp38-abi3-manylinux_2_28_x86_64.whl", VLLM_VERSION_OVERRIDE = "0.29.0+lora.tp.fix" } }
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"

@@ -1,0 +1,4 @@
+MODEL RESPONSE:
+<model_response>
+{target_response}
+</model_response>

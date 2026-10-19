@@ -1,0 +1,33 @@
+[project]
+name = "cbrn-eval"
+version = "0.1.0"
+description = "Evaluates a trained investigator: samples prompts, rolls them out against a served target, judges them, and exports the scores as CSV."
+requires-python = ">=3.12"
+dependencies = [
+    "common",
+    "click>=8.1",
+    "httpx",
+    "polars>=1.30",
+    "python-dotenv",
+    "rich",
+    "tinker>=0.25.0,<0.26",
+    "tinker-cookbook>=0.5.4,<0.6",
+]
+
+
+[dependency-groups]
+dev = ["pytest>=8.0", "pytest-asyncio>=1.0", "ruff>=0.15"]
+
+[tool.uv.sources]
+common = { path = "../common", editable = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""

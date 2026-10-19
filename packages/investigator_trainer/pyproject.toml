@@ -1,0 +1,34 @@
+[project]
+name = "investigator-trainer"
+version = "0.1.0"
+description = "RL training of the investigator: Curriculum of Models, the Black-box baseline, and PRBO."
+requires-python = ">=3.12"
+dependencies = [
+    "common",
+    "chz>=0.4.0",
+    "httpx",
+    "python-dotenv",
+    "tinker>=0.25.0,<0.26",
+    "tinker-cookbook>=0.5.4,<0.6",
+    "wandb",
+]
+
+[project.scripts]
+com-train = "investigator_trainer.train:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "pytest-asyncio>=1.0", "ruff>=0.15"]
+
+[tool.uv.sources]
+common = { path = "../common", editable = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""

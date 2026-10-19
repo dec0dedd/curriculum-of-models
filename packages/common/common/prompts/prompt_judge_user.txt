@@ -1,0 +1,4 @@
+The prompt you should evaluate is:
+<prompt>
+{investigator_prompt}
+</prompt>

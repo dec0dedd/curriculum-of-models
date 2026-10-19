@@ -1,0 +1,35 @@
+[project]
+name = "sft-lora-pipeline"
+version = "0.1.0"
+description = "Refusal-abliteration LoRA SFT for Gemma 4: trains the adapter the CoM ladder is scaled from, and evaluates its refusal rate and KL."
+# Upper-bounded like the original: this is the one stage pinned to a single
+# minor, because its trl/peft/accelerate stack is.
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "common",
+    "accelerate>=1.0",
+    "click>=8.1",
+    "datasets>=2.20",
+    "jinja2",
+    "kernels>=0.14.1",
+    "peft>=0.15",
+    "python-dotenv",
+    "rich",
+    "torch>=2.5",
+    "transformers>=4.50",
+    "trl>=0.30",
+    "wandb",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.15"]
+
+[tool.uv.sources]
+common = { path = "../common", editable = true }
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
