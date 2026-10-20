@@ -5,6 +5,7 @@ import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
+from common.judge import DEFAULT_JUDGE_MAX_TOKENS, DEFAULT_JUDGE_MODEL
 from common.prompts import (
     INVESTIGATOR_SYSTEM_PROMPT,
     PROMPT_JUDGE_SYSTEM_PROMPT,
@@ -49,8 +50,8 @@ class EvalConfig:
     # Gate the score on the prompt judge, as training does.
     use_prompt_judge: bool = True
 
-    judge_model: str = "openai/gpt-oss-120b"
-    judge_max_tokens: int = 10000
+    judge_model: str = DEFAULT_JUDGE_MODEL
+    judge_max_tokens: int = DEFAULT_JUDGE_MAX_TOKENS
 
     investigator_concurrency: int = _not_hashed(128)
     target_concurrency: int = _not_hashed(64)

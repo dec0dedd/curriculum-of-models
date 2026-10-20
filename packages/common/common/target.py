@@ -96,8 +96,7 @@ class VLLMTarget:
             max_retries=TARGET_MAX_RETRIES,
         )
 
-    # ── Chat sampling (CoM stages, PRBO natural responses) ─────────────────────
-
+    # chat sampling (com stages, prbo natural responses)
     async def generate(
         self, messages: list[dict], n: int = 1, lora_name: str | None = None
     ) -> list[str]:
@@ -119,8 +118,7 @@ class VLLMTarget:
             logger.warning("Target generated an empty response.")
         return texts
 
-    # ── Token-exact PRBO ───────────────────────────────────────────────────────
-
+    # token-exact prbo
     @cached_property
     def tokenizer(self) -> Any:
         """Loaded on first use: ``generate`` needs none, so a served adapter name
@@ -242,8 +240,7 @@ class VLLMTarget:
             )
         return torch.tensor(log_probs, dtype=torch.float32)
 
-    # ── Internals ──────────────────────────────────────────────────────────────
-
+    # internals
     async def _token_completions(
         self,
         *,

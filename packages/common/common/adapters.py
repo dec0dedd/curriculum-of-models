@@ -20,14 +20,7 @@ def adapter_name_for_scale(scale: float) -> str:
 
 
 def lora_name_for_scale(scale: float) -> str | None:
-    """The adapter the trainer asks vLLM for, or None for the base model.
-
-    Scale 0.0 is the unmodified target, which is served by passing no adapter
-    at all rather than one scaled to nothing. The builder still writes an
-    ``alpha_0_0`` directory, because evaluating against a zero-strength
-    adapter is a useful control -- it separates the effect of the weights from
-    the effect of vLLM's LoRA path.
-    """
+    """The adapter name for a scale, or None for the base model at scale 0.0."""
     return None if scale == 0.0 else adapter_name_for_scale(scale)
 
 

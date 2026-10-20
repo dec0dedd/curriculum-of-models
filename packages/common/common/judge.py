@@ -27,6 +27,10 @@ from common.scoring import PROMPT_CRITERIA, RESPONSE_CRITERIA, to_bool
 logger = logging.getLogger(__name__)
 
 DEFAULT_JUDGE_MODEL = "openai/gpt-oss-120b"
+# Covers the judge's reasoning tokens as well as its JSON verdict.
+DEFAULT_JUDGE_MAX_TOKENS = 10000
+# Greedy decoding: the judge should score a given input the same way every time.
+JUDGE_TEMPERATURE = 0
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # The cheapest gpt-oss-120b providers on OpenRouter, tried in this order.
@@ -97,7 +101,7 @@ class Judge:
         self,
         model: str = DEFAULT_JUDGE_MODEL,
         base_url: str = OPENROUTER_BASE_URL,
-        max_tokens: int = 10000,
+        max_tokens: int = DEFAULT_JUDGE_MAX_TOKENS,
         reasoning_effort: str | None = "medium",
         providers: list[str] | None = None,
     ):
@@ -138,7 +142,7 @@ class Judge:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},
                 ],
-                temperature=0,
+                temperature=JUDGE_TEMPERATURE,
                 max_tokens=self.max_tokens,
                 timeout=REQUEST_TIMEOUT_S,
                 extra_body=extra_body,

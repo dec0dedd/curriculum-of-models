@@ -24,9 +24,7 @@ async def run(formula, target, judge, n=1, prompt=PROMPT):
     )
 
 
-# ── CoM ──────────────────────────────────────────────────────────────────────
-
-
+# com
 @pytest.mark.parametrize("scales", [[], [0.5, 0.5], [0.0, 1.0], [1.2, 0.0]])
 def test_the_reward_rejects_an_invalid_ladder(scales):
     # The contract itself is tested in common; this is the reward refusing to
@@ -95,9 +93,7 @@ async def test_black_box_samples_the_base_model():
     assert com.current_stage == 0
 
 
-# ── PRBO ─────────────────────────────────────────────────────────────────────
-
-
+# prbo
 def test_prbo_range():
     assert to_prbo_range(0) == -100
     assert to_prbo_range(50) == -50

@@ -12,7 +12,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-# The id of a behavior written inline with behavior_rubric=...
+# Id for a behavior passed inline via behavior_rubric= instead of from a file.
+# Every behavior needs an id: it keys the GRPO groups, the curriculum stage
+# file, and the per-behavior metrics.
 CUSTOM_BEHAVIOR_ID = "custom"
 
 
