@@ -7,7 +7,7 @@ A config is a flat mapping of ``TrainConfig`` field names:
 
 A run names one method and one target, each defined in exactly one file:
 
-    com-train methods/com.yaml targets/gemma.yaml
+    train methods/com.yaml targets/gemma.yaml
 
 They apply in the order given, the later one winning, and every
 ``field=value`` on the command line beats all of them. A third file overrides

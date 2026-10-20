@@ -4,7 +4,7 @@ import pytest
 
 from cbrn_eval import sources
 from cbrn_eval.config import EvalConfig
-from cbrn_eval.sources import build_prompt_items, expected_prompt_total
+from cbrn_eval.sources import build_prompt_items
 
 
 @pytest.fixture
@@ -18,11 +18,6 @@ def behaviors_file(tmp_path):
     return str(path)
 
 
-def test_behaviors_source_is_one_item_per_behavior(behaviors_file):
-    config = EvalConfig(prompt_source="behaviors", behaviors_file=behaviors_file)
-    assert expected_prompt_total(config) == 2
-
-
 async def test_behaviors_source_sends_the_rubric_verbatim(behaviors_file):
     config = EvalConfig(prompt_source="behaviors", behaviors_file=behaviors_file)
     items = await build_prompt_items(config)
@@ -33,19 +28,10 @@ async def test_behaviors_source_sends_the_rubric_verbatim(behaviors_file):
     assert all(i.prompt_index == 0 for i in items)
 
 
-def test_investigator_source_total_scales_with_generations(behaviors_file):
-    config = EvalConfig(
-        prompt_source="investigator",
-        behaviors_file=behaviors_file,
-        n_investigator_generations=5,
-    )
-    assert expected_prompt_total(config) == 10
-
-
-def test_unknown_prompt_source_is_rejected(behaviors_file):
+async def test_unknown_prompt_source_is_rejected(behaviors_file):
     config = EvalConfig(prompt_source="nonsense", behaviors_file=behaviors_file)
     with pytest.raises(ValueError, match="Unknown prompt_source"):
-        expected_prompt_total(config)
+        await build_prompt_items(config)
 
 
 class _FakeBackend:

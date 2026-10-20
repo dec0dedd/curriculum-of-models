@@ -1,7 +1,7 @@
 [project]
 name = "cbrn-eval"
 version = "0.1.0"
-description = "Evaluates a trained investigator: samples prompts, rolls them out against a served target, judges them, and exports the scores as CSV."
+description = "Evaluates a trained investigator: samples prompts, rolls them out against a served target, judges them, and writes per-run scores."
 requires-python = ">=3.12"
 dependencies = [
     "common",
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-com-eval = "cbrn_eval.cli:main"
+eval = "cbrn_eval.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8.0", "pytest-asyncio>=1.0", "ruff>=0.15"]

@@ -25,7 +25,7 @@ workspace, which would force a single shared environment.
 | [`common`](packages/common) | — | behaviors, prompts, the judge, scoring, the target client |
 | [`target_server`](packages/target_server) | 1 | serves the target and its LoRA ladder (vLLM, GPU) |
 | [`investigator_trainer`](packages/investigator_trainer) | 2 | the RL training: CoM, Black-box, PRBO |
-| [`cbrn_eval`](packages/cbrn_eval) | 3 | evaluates a checkpoint, exports results as CSV |
+| [`cbrn_eval`](packages/cbrn_eval) | 3 | evaluates a checkpoint, writes per-run scores |
 
 `data/behaviors/` is shared: the trainer and the eval both read it.
 
@@ -88,7 +88,7 @@ To build the ladder by itself, or to build only the stages you need:
 ```bash
 uv run build-ladder --scales 1.0,0.8,0.6,0.4,0.2,0.0
 uv run build-ladder --source-repo noahrossi/gpt-oss-120b-refusal-r1-vllm \
-    --output-dir scaled_target_loras_gptoss
+    --output-dir scaled_gpt_oss_loras
 ```
 
 **2. Train.** A run names one method and one target, and any `field=value`
@@ -96,27 +96,27 @@ after them overrides both:
 
 ```bash
 cd packages/investigator_trainer
-uv run com-train methods/com.yaml      targets/gemma.yaml   behavior_ids=transluce_tabun
-uv run com-train methods/prbo.yaml     targets/gpt_oss.yaml behavior_ids=transluce_hmtd
-uv run com-train methods/blackbox.yaml targets/gemma.yaml   behavior_ids=transluce_vx \
-    load_checkpoint_path=tinker://dc6e07a3-5e75-5480-bd95-57ddd75a4394:train:0/weights/sft-final
+uv run train methods/com.yaml      targets/gemma.yaml   behavior_ids=transluce_tabun
+uv run train methods/prbo.yaml     targets/gpt_oss.yaml behavior_ids=transluce_hmtd
+uv run train methods/blackbox.yaml targets/gemma.yaml   behavior_ids=transluce_vx
 ```
 
-Black-box needs `load_checkpoint_path`: the paper's investigator SFT warm start
-above, which every Black-box run in the paper used.
+Black-box starts from the paper's investigator SFT warm start, which
+`blackbox.yaml` sets as the default `load_checkpoint_path`. Pass your own on
+the command line to override it, or `load_checkpoint_path=None` to clear it.
 
 A plain argument is a config file, resolved as given or else against
 [`configs/`](configs/); anything with an `=` is a field override. The methods
 are [`com`, `blackbox`, `prbo`, `prbo_plain`](configs/methods/) and the targets
 [`gemma`, `gemma_reasoning`, `gpt_oss`](configs/targets/). Those files carry
-the paper's per-method values (KL penalty, the truncation gate) and
+the paper's per-method values (KL penalty, reward type) and
 per-target values (model, token budget, chat template),
 each written in exactly one place. A later config beats an earlier one, so a
 third file is the place for local settings like `vllm_base_url` — see
 [`config_file.py`](packages/investigator_trainer/investigator_trainer/config_file.py).
 
 A single-behavior run is one `behavior_ids`; leave it out to train on all 48.
-`uv run com-train --help` lists the configs and every field.
+`uv run train --help` lists the configs and every field.
 
 Each run writes `runs/<name>/` with `run_metadata.json` (full config, git
 state, the config files that produced it, command line), `rollouts.jsonl`,
@@ -128,12 +128,11 @@ tail -f runs/<name>/rollouts.jsonl | jq '.reward, .behavior_id'       # live rew
 cat runs/<name>/curriculum_stage*.txt                                 # current CoM stage(s), if curriculum
 ```
 
-**3. Evaluate** the resulting checkpoint, then export its scores:
+**3. Evaluate** the resulting checkpoint:
 
 ```bash
 cd packages/cbrn_eval
-uv run com-eval sweep --investigator-model tinker://... --target-model google/gemma-4-31B-it
-uv run com-eval export
+uv run eval sweep --investigator-model tinker://... --target-model google/gemma-4-31B-it
 ```
 
 `sweep` samples investigator prompts (or, with `--prompt-source=behaviors`,
@@ -141,13 +140,12 @@ sends each behavior verbatim as a direct-ask baseline), rolls them out
 against the target, and judges them; `--behaviors-file`/`--behavior-ids`
 mirror the trainer's. Results land in `eval_results/<run_id>_{full.parquet,
 summary.json}`, where `run_id` hashes every result-affecting input, so a
-completed run is not repeated and an interrupted one resumes. `export` then
-writes one CSV per run plus an index, so the numbers can be tabulated with
-whatever you like. Plotting lives in the paper repo, not here.
+completed run is not repeated and an interrupted one resumes. The per-behavior
+means are in `summary.json`; the full per-prompt scores are in the parquet.
+Plotting lives in the paper repo, not here.
 
 ```bash
-cat eval_results/exports/index.csv                    # one row per run: mean score, etc.
-column -s, -t < eval_results/exports/<run_id>.csv | less -S   # the full per-prompt scores
+cat eval_results/<run_id>_summary.json | python -m json.tool   # per-behavior means
 ```
 
 ## Useful commands
@@ -164,8 +162,8 @@ Inside a package (`cd packages/<pkg>` first; each has its own `.venv`):
 
 ```bash
 uv run pytest -k <name>            # a single test
-uv run com-train --help            # investigator_trainer: methods/targets + every field
-uv run com-eval sweep --help       # cbrn_eval: every sweep flag, with its default
+uv run train --help            # investigator_trainer: methods/targets + every field
+uv run eval sweep --help       # cbrn_eval: every sweep flag, with its default
 uv run build-ladder --help         # target_server: ladder-builder flags
 ```
 

@@ -44,11 +44,7 @@ def save_run_metadata(
     """The full config, code version and command line, for tracing a run back.
 
     ``config_files`` are the method/target YAML files that produced ``config``,
-    in the order they were applied (see ``train.parse_args``). The resolved
-    config is already in ``config``, so this is for the question the resolved
-    values alone cannot answer: which files on disk, as of this run, are
-    responsible for it. ``command`` records the same paths as typed, which may
-    differ (relative, or resolved against configs/) from what is listed here.
+    in the order they were applied.
     """
     path = Path(log_dir) / "run_metadata.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -56,10 +52,7 @@ def save_run_metadata(
         "timestamp": datetime.now(UTC).isoformat(),
         "config": chz.asdict(config),
         "config_files": [str(Path(p).resolve()) for p in config_files],
-        "git": {
-            "commit": _git("rev-parse", "HEAD"),
-            "is_dirty": bool(_git("status", "--porcelain")),
-        },
+        "git_commit": _git("rev-parse", "HEAD"),
         "versions": {
             "python": sys.version,
             **{
@@ -101,8 +94,8 @@ class RolloutLog:
             "env_id": env_id,
             "behavior_id": behavior_id,
             "investigator_prompt": investigator_prompt,
-            # The reward the policy was trained on; formula_reward is before
-            # the env's truncation gate.
+            # The reward the policy was trained on; formula_reward is what the
+            # reward formula returned, or null if the rollout failed before one.
             "reward": reward,
             "formula_reward": result.reward if result else None,
             "investigator_refused": investigator_refused,

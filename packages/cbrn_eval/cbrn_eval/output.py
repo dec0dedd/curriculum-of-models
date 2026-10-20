@@ -210,7 +210,3 @@ def save_summary(output_dir: str, run_id: str, summary: dict) -> Path:
     tmp.write_text(json.dumps(summary, indent=2))
     tmp.replace(path)
     return path
-
-
-def load_summary(output_dir: str, run_id: str) -> dict:
-    return json.loads(summary_path(output_dir, run_id).read_text())

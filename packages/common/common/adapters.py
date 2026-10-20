@@ -11,10 +11,6 @@ ever disagreed, a run would die partway up the ladder on an unknown adapter.
 
 from collections.abc import Sequence
 
-# The proposal distribution q for PRBO, and the easiest stage of the CoM
-# ladder: the adapter at full strength.
-FULL_STRENGTH_ADAPTER = "alpha_1_0"
-
 
 def adapter_name_for_scale(scale: float) -> str:
     """``0.6 -> "alpha_0_6"``. Rounding strips float noise, so 3 * 0.2 works."""

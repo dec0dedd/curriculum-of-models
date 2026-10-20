@@ -1,5 +1,4 @@
-# Gemma with its thinking template on. The reward scores the response only;
-# the reasoning is split off and truncated to reasoning_max_chars for logging.
+# Gemma 4 31B-it with its thinking template on.
 target_model_id: google/gemma-4-31B-it
 target_max_tokens: 14000
 chat_template_kwargs:

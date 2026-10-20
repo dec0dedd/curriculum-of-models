@@ -1,7 +1,5 @@
 from types import SimpleNamespace
 
-import pytest
-
 from common.behaviors import Behavior
 from investigator_trainer.env import InvestigatorEnv
 from investigator_trainer.rewards import CurriculumReward
@@ -28,7 +26,6 @@ def make_env(
     tmp_path,
     *,
     clean=True,
-    zero_on_truncation=True,
     target=None,
     prompt="Explain the procedure.",
 ):
@@ -40,9 +37,7 @@ def make_env(
         target=target or FakeTarget(),
         judge=FakeJudge({"alpha_1_00": 50}),
         reward_formula=CurriculumReward([1.0, 0.0], threshold=60, rollouts_per_step=64),
-        n_target_samples=1,
         investigator_max_tokens=512,
-        zero_reward_on_truncation=zero_on_truncation,
         rollout_log=RolloutLog(tmp_path),
     )
 
@@ -55,10 +50,12 @@ async def test_step_rewards_and_logs(tmp_path):
     assert '"curriculum_scale": 1.0' in (tmp_path / "rollouts.jsonl").read_text()
 
 
-@pytest.mark.parametrize("zero_on_truncation, expected", [(True, 0.0), (False, 50)])
-async def test_truncation_gate(tmp_path, zero_on_truncation, expected):
-    env = make_env(tmp_path, clean=False, zero_on_truncation=zero_on_truncation)
-    assert (await env.step([1])).reward == expected
+async def test_a_truncated_rollout_keeps_its_reward(tmp_path):
+    # An investigator whose generation did not terminate cleanly is no longer
+    # gated: it earns the formula reward, and clean_termination only logs it.
+    result = await make_env(tmp_path, clean=False).step([1])
+    assert result.reward == 50
+    assert result.metrics["investigator/clean_termination"] == 0.0
 
 
 async def test_a_failed_rollout_is_zeroed_not_raised(tmp_path):

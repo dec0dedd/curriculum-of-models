@@ -1,6 +1,6 @@
 """Train an investigator with CoM, Black-box, or PRBO.
 
-    com-train methods/com.yaml targets/gemma.yaml behavior_ids=transluce_tabun
+    train methods/com.yaml targets/gemma.yaml behavior_ids=transluce_tabun
 
 A run names one method and one target, resolved against ``configs/``. Those
 files hold the values the paper's runs used; a later config beats an earlier
@@ -35,71 +35,93 @@ CONFIGS_DIR = REPO_ROOT / "configs"
 
 @chz.chz
 class TrainConfig:
-    # ── Behaviors ─────────────────────────────────────────────────────────────
+    # behaviors
     # Set behavior_rubric (one inline behavior) or behaviors_file, not both.
     behavior_rubric: str | None = None
+
     behaviors_file: str | None = str(REPO_ROOT / "data/behaviors/transluce_cbrn.jsonl")
+
     # A subset of behaviors_file, by id. None = every row.
     behavior_ids: list[str] | None = None
+
     # Seeds the per-epoch behavior shuffle.
     behavior_seed: int = 0
 
-    # ── Investigator (trained on Tinker) ──────────────────────────────────────
+    # investigator (trained on tinker)
     investigator_model_name: str = "Qwen/Qwen3.5-9B"
+
     renderer_name: str = "qwen3_5_disable_thinking"
+
     # A /weights/ checkpoint to start from (the SFT warm start for Black-box).
     load_checkpoint_path: str | None = None
-    # The KL reference. None = the starting checkpoint's /sampler_weights/
-    # counterpart (or the base model when starting fresh).
+
+    # KL reference. None = the start checkpoint's /sampler_weights/ path, or
+    # the base model if starting fresh.
     kl_reference_checkpoint_path: str | None = None
 
-    # ── Target (served by vLLM, see target_server/scripts/serve_*.sh) ─────────
+    # target (served by vllm, see target_server/scripts/serve_*.sh)
     target_model_id: str = "google/gemma-4-31B-it"
+
     vllm_base_url: str = "http://localhost:8000"
+
     chat_template_kwargs: dict = chz.field(
         default_factory=lambda: {"enable_thinking": False}
     )
-    target_max_tokens: int = 7000
-    # Must be 1.0 for PRBO.
-    target_temperature: float = 1.0
-    # Target samples per investigator prompt; the reward averages over them.
-    n_target_samples: int = 1
 
-    # ── RL ────────────────────────────────────────────────────────────────────
+    target_max_tokens: int = 7000
+
+    # rl
     group_size: int = 64
+
     # Behaviors per step, one group each.
     batch_size: int = 1
+
     max_steps: int = 400
+
     learning_rate: float = 1e-5
+
     lora_rank: int = 32
+
     investigator_max_tokens: int = 512
+
     temperature: float = 1.0
+
     # Method-dependent; every config in configs/methods/ sets it.
     kl_penalty_coef: float = 0.0
+
     num_substeps: int = 1
 
-    # ── Method (set by configs/methods/*.yaml) ────────────────────────────────
+    # method (set by configs/methods/*.yaml)
     reward_type: str = "curriculum"
-    # Zero the reward of an investigator cut off at investigator_max_tokens.
-    zero_reward_on_truncation: bool = False
+
     curriculum_scales: list[float] = chz.field(
         default_factory=lambda: [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
     )
+
     curriculum_threshold: float = 60.0
+
     prbo_judge_scale: float = 1.0
+
     prbo_natural_response_threshold: float | None = None
+
     prbo_proposal_lora: str = DEFAULT_PROPOSAL_LORA
 
-    # ── Logging and checkpoints ───────────────────────────────────────────────
+    # logging and checkpoints
     # Tinker checkpoints, metrics, rollouts.jsonl and run_metadata.json.
     # None = runs/<run_name>.
     log_path: str | None = None
+
     run_name: str | None = None
+
     wandb_project: str | None = None
+
     save_every: int = 50
+
     # Server-side checkpoint retention in seconds. None keeps them.
     ttl_seconds: int | None = None
+
     reasoning_max_chars: int = 5000
+
     behavior_if_log_dir_exists: cli_utils.LogdirBehavior = "ask"
 
 
@@ -145,11 +167,8 @@ async def train(cfg: TrainConfig, config_files: Sequence[str | Path] = ()) -> No
         target_model_id=cfg.target_model_id,
         vllm_base_url=cfg.vllm_base_url,
         target_max_tokens=cfg.target_max_tokens,
-        target_temperature=cfg.target_temperature,
         chat_template_kwargs=cfg.chat_template_kwargs,
-        n_target_samples=cfg.n_target_samples,
         reward_type=cfg.reward_type,
-        zero_reward_on_truncation=cfg.zero_reward_on_truncation,
         curriculum_scales=cfg.curriculum_scales,
         curriculum_threshold=cfg.curriculum_threshold,
         prbo_judge_scale=cfg.prbo_judge_scale,
@@ -167,8 +186,8 @@ async def train(cfg: TrainConfig, config_files: Sequence[str | Path] = ()) -> No
         max_tokens=cfg.investigator_max_tokens,
         temperature=cfg.temperature,
         kl_penalty_coef=cfg.kl_penalty_coef,
-        # The reference is the policy's own starting point, so a warm-started
-        # run measures drift from its warm start, not from the bare base model.
+        # Reference is where this run started, so a warm-started run measures
+        # drift from its warm start rather than the base model.
         kl_reference_config=(
             KLReferenceConfig(
                 base_model=cfg.investigator_model_name,
@@ -192,20 +211,21 @@ def usage() -> str:
     methods = ", ".join(available(CONFIGS_DIR / "methods")) or "(none found)"
     targets = ", ".join(available(CONFIGS_DIR / "targets")) or "(none found)"
     return f"""\
-Train the investigator. Name one method and one target:
+Train the investigator. Name one method and one target, then any overrides:
 
-    com-train methods/<method>.yaml targets/<target>.yaml [field=value ...]
+    train methods/<method>.yaml targets/<target>.yaml [field=value ...]
 
-  methods  {methods}
-  targets  {targets}
+  methods   {methods}
+  targets   {targets}
 
-A plain argument is a config file, resolved as given or else against
-{CONFIGS_DIR}. Those files carry the paper's values. A later
-config beats an earlier one, and every field=value beats all of them. Each
-field below can be set that way.
+A plain argument is a config file (resolved as given, else under {CONFIGS_DIR}).
+A later config beats an earlier one, and every field=value beats them all; each
+field listed below can be set that way.
 
-    com-train methods/com.yaml targets/gemma.yaml behavior_ids=transluce_tabun
-    com-train methods/prbo.yaml targets/gpt_oss.yaml group_size=256
+Examples:
+
+    train methods/com.yaml  targets/gemma.yaml   behavior_ids=transluce_tabun
+    train methods/prbo.yaml targets/gpt_oss.yaml group_size=256
 """
 
 
@@ -240,8 +260,8 @@ def main() -> None:
     try:
         cfg = parse_args(sys.argv[1:], config_files)
     except EntrypointHelpException as help_text:
-        # chz prints its field table by raising. Lead with the config usage,
-        # which is the actual interface and is not a field.
+        # chz signals --help by raising. Print our own usage first, then its
+        # field table.
         print(usage())
         print(help_text.args[0] if help_text.args else "")
         raise SystemExit(0) from None

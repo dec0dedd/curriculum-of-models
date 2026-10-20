@@ -1,9 +1,4 @@
-# PRBO as the combined estimator: the proposal term against a refusal-free
-# LoRA, maximised against the score of the base target's own response.
-#
-# prbo_natural_response_threshold stays unset (null) -- the paper's runs put
-# no threshold on the natural-response term.
+# PRBO combined estimator.
 reward_type: combined_estimator
 prbo_judge_scale: 1.1
 kl_penalty_coef: 0.1
-zero_reward_on_truncation: false

@@ -44,9 +44,9 @@ from common.target import VLLMTarget
 logger = logging.getLogger(__name__)
 
 REWARD_TYPES = ("curriculum", "prbo", "combined_estimator")
-PRBO_REWARD_TYPES = ("prbo", "combined_estimator")
 
-# A target response this close to target_max_tokens counts as clipped.
+# A target response this close to target_max_tokens counts as clipped. Only
+# feeds the target/is_clipped metric (wandb / metrics.jsonl); never the reward.
 CLIP_MARGIN_TOKENS = 5
 
 
@@ -63,9 +63,7 @@ class InvestigatorEnv(Env):
         target: VLLMTarget,
         judge: Judge,
         reward_formula: RewardFormula,
-        n_target_samples: int,
         investigator_max_tokens: int,
-        zero_reward_on_truncation: bool,
         rollout_log: RolloutLog,
     ):
         self.env_id = env_id
@@ -75,9 +73,7 @@ class InvestigatorEnv(Env):
         self.target = target
         self.judge = judge
         self.reward_formula = reward_formula
-        self.n_target_samples = n_target_samples
         self.investigator_max_tokens = investigator_max_tokens
-        self.zero_reward_on_truncation = zero_reward_on_truncation
         self.rollout_log = rollout_log
 
     async def initial_observation(self) -> tuple[ModelInput, StopCondition]:
@@ -110,7 +106,8 @@ class InvestigatorEnv(Env):
                 behavior=self.behavior.behavior,
                 target=self.target,
                 judge=self.judge,
-                n_target_samples=self.n_target_samples,
+                # The paper used one target completion per investigator prompt.
+                n_target_samples=1,
             )
         except Exception as e:
             # A failed target or judge call, or a PRBO sample that cannot be
@@ -119,9 +116,6 @@ class InvestigatorEnv(Env):
             error = repr(e)
 
         reward = result.reward if result is not None else 0.0
-        # CoM's gate: an investigator cut off at its token budget earns nothing.
-        if self.zero_reward_on_truncation and not clean:
-            reward = 0.0
 
         self.rollout_log.write(
             step=self.step_index,
@@ -166,14 +160,7 @@ class InvestigatorEnv(Env):
         )
 
     def _clipped_fraction(self, result: RewardResult | None) -> float:
-        """Share of target samples that ran into target_max_tokens.
-
-        The judge gives a cut-off response full credit, so this is the only
-        sign that target_max_tokens is too low. For a reasoning target only the
-        final response is counted, not the reasoning that also spent the
-        budget, so this undercounts: a sample cut off mid-reasoning comes back
-        empty and shows in target/is_empty instead.
-        """
+        """Share of target samples that hit target_max_tokens."""
         if result is None or not result.responses:
             return 0.0
         limit = self.target.max_tokens - CLIP_MARGIN_TOKENS
@@ -192,9 +179,7 @@ class InvestigatorGroupBuilder(EnvGroupBuilder):
     target: VLLMTarget
     judge: Judge
     reward_formula: RewardFormula
-    n_target_samples: int
     investigator_max_tokens: int
-    zero_reward_on_truncation: bool
     rollout_log: RolloutLog
 
     async def make_envs(self) -> Sequence[InvestigatorEnv]:
@@ -207,9 +192,7 @@ class InvestigatorGroupBuilder(EnvGroupBuilder):
                 target=self.target,
                 judge=self.judge,
                 reward_formula=self.reward_formula,
-                n_target_samples=self.n_target_samples,
                 investigator_max_tokens=self.investigator_max_tokens,
-                zero_reward_on_truncation=self.zero_reward_on_truncation,
                 rollout_log=self.rollout_log,
             )
             for i in range(self.group_size)
@@ -234,9 +217,7 @@ class InvestigatorDataset(RLDataset):
     # Keyed by behavior_id. CoM keeps a ladder per behavior; the PRBO formulas
     # are stateless and share one instance.
     reward_formulas: dict[str, RewardFormula]
-    n_target_samples: int
     investigator_max_tokens: int
-    zero_reward_on_truncation: bool
     rollout_log: RolloutLog
 
     def get_batch(self, index: int) -> Sequence[InvestigatorGroupBuilder]:
@@ -250,9 +231,7 @@ class InvestigatorDataset(RLDataset):
                 target=self.target,
                 judge=self.judge,
                 reward_formula=self.reward_formulas[behavior.behavior_id],
-                n_target_samples=self.n_target_samples,
                 investigator_max_tokens=self.investigator_max_tokens,
-                zero_reward_on_truncation=self.zero_reward_on_truncation,
                 rollout_log=self.rollout_log,
             )
             for behavior in behaviors_for_step(
@@ -334,11 +313,8 @@ class InvestigatorDatasetBuilder(RLDatasetBuilder):
     target_model_id: str
     vllm_base_url: str
     target_max_tokens: int
-    target_temperature: float
     chat_template_kwargs: dict
-    n_target_samples: int
     reward_type: str
-    zero_reward_on_truncation: bool
     curriculum_scales: list[float]
     curriculum_threshold: float
     prbo_judge_scale: float
@@ -348,11 +324,6 @@ class InvestigatorDatasetBuilder(RLDatasetBuilder):
     reasoning_max_chars: int = 5000
 
     async def __call__(self) -> tuple[InvestigatorDataset, None]:
-        if self.reward_type in PRBO_REWARD_TYPES and self.target_temperature != 1.0:
-            raise ValueError(
-                "PRBO needs target_temperature=1.0: q's sampled log-probs and p's "
-                "replayed ones must both describe the unscaled distributions."
-            )
         behaviors = resolve_behaviors(
             behavior_rubric=self.behavior_rubric,
             behaviors_file=self.behaviors_file,
@@ -381,7 +352,9 @@ class InvestigatorDatasetBuilder(RLDatasetBuilder):
             model_id=self.target_model_id,
             base_url=self.vllm_base_url,
             max_tokens=self.target_max_tokens,
-            temperature=self.target_temperature,
+            # Always 1.0: PRBO's log p - log q replay only holds for the
+            # unscaled distributions, and the other methods used 1.0 too.
+            temperature=1.0,
             chat_template_kwargs=self.chat_template_kwargs,
         )
         reward_formulas = build_reward_formulas(
@@ -405,9 +378,7 @@ class InvestigatorDatasetBuilder(RLDatasetBuilder):
             target=target,
             judge=Judge(),
             reward_formulas=reward_formulas,
-            n_target_samples=self.n_target_samples,
             investigator_max_tokens=self.investigator_max_tokens,
-            zero_reward_on_truncation=self.zero_reward_on_truncation,
             rollout_log=RolloutLog(self.log_dir, self.reasoning_max_chars),
         )
         return dataset, None

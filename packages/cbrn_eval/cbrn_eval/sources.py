@@ -30,16 +30,6 @@ def load_eval_behaviors(config: EvalConfig) -> list[Behavior]:
     )
 
 
-def expected_prompt_total(config: EvalConfig) -> int:
-    """How many prompt items a sweep over ``config`` will produce."""
-    n_behaviors = len(load_eval_behaviors(config))
-    if config.prompt_source == "behaviors":
-        return n_behaviors
-    if config.prompt_source == "investigator":
-        return n_behaviors * config.n_investigator_generations
-    raise ValueError(f"Unknown prompt_source: {config.prompt_source!r}")
-
-
 def _item(b: Behavior, idx: int, prompt: str) -> PromptItem:
     return PromptItem(
         behavior_id=b.behavior_id,

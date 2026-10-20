@@ -3,7 +3,6 @@
 import pytest
 
 from common.adapters import (
-    FULL_STRENGTH_ADAPTER,
     adapter_name_for_scale,
     lora_name_for_scale,
     validate_ladder,
@@ -21,10 +20,6 @@ def test_float_noise_does_not_change_a_name():
     # A ladder built by repeated addition must land on the served name.
     assert adapter_name_for_scale(3 * 0.2) == "alpha_0_6"
     assert adapter_name_for_scale(1 - 0.9) == "alpha_0_1"
-
-
-def test_full_strength_is_the_proposal_adapter():
-    assert FULL_STRENGTH_ADAPTER == adapter_name_for_scale(1.0)
 
 
 def test_scale_zero_means_no_adapter_for_the_trainer():

@@ -1,3 +1,5 @@
+import json
+
 from cbrn_eval import output
 from cbrn_eval.output import TrialRow, gated_score
 
@@ -112,7 +114,7 @@ def test_summarize_aggregates_per_behavior_and_totals():
     assert summary["totals"]["n_errors"] == 1
 
 
-def test_write_and_load_summary_round_trips(tmp_path):
+def test_write_summary_writes_to_disk(tmp_path):
     output_dir = str(tmp_path)
     output.append_row(output_dir, "run1", _row())
     rows = output.load_rows(output_dir, "run1")
@@ -120,7 +122,8 @@ def test_write_and_load_summary_round_trips(tmp_path):
         output_dir, "run1", {"target_model": "x"}, "t0", "t1", rows
     )
     assert summary["run_id"] == "run1"
-    assert output.load_summary(output_dir, "run1") == summary
+    written = json.loads(output.summary_path(output_dir, "run1").read_text())
+    assert written == summary
 
 
 def test_remove_run_outputs_deletes_everything(tmp_path):

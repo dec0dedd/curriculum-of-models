@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-com-train = "investigator_trainer.train:main"
+train = "investigator_trainer.train:main"
 
 [dependency-groups]
 dev = ["pytest>=8.0", "pytest-asyncio>=1.0", "ruff>=0.15"]

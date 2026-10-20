@@ -1,9 +1,8 @@
-"""Click CLI entry point: com-eval sweep / com-eval export."""
+"""Click CLI entry point: eval sweep."""
 
 import asyncio
 import logging
 from dataclasses import fields
-from pathlib import Path
 
 import click
 from dotenv import load_dotenv
@@ -11,7 +10,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.table import Table
 
-from . import export, output
+from . import output
 from .config import EvalConfig
 from .runner import run_sweep
 
@@ -20,7 +19,7 @@ console = Console()
 
 @click.group(context_settings={"show_default": True})
 def main() -> None:
-    """com-eval: sweep adversarial prompts against a served target and export scores."""
+    """eval: sweep adversarial prompts against a served target and score them."""
     load_dotenv()
 
 
@@ -187,21 +186,3 @@ def _print_summary(summary: dict) -> None:
         table.add_row(*cells)
     console.print(table)
     console.print(f"Totals: {summary['totals']}")
-
-
-@main.command(name="export")
-@click.option("--output-dir", default=EvalConfig.output_dir)
-@click.option(
-    "--export-dir",
-    default=None,
-    help="Where the CSVs land. Defaults to <output-dir>/exports.",
-)
-def export_cmd(output_dir: str, export_dir: str | None) -> None:
-    """Export every completed run in --output-dir to one CSV each, plus an index."""
-    out = Path(output_dir)
-    target = Path(export_dir) if export_dir else out / "exports"
-    n = export.export_all(out, target)
-    if n == 0:
-        console.print(f"No completed runs found in {out}")
-        return
-    console.print(f"[bold green]Exported[/bold green] {n} run(s) to {target}")

@@ -22,7 +22,6 @@ TARGETS = available(TARGETS_DIR)
 METHOD_FIELDS = (
     "reward_type",
     "kl_penalty_coef",
-    "zero_reward_on_truncation",
 )
 # A target config must pin each of these.
 TARGET_FIELDS = ("target_model_id", "chat_template_kwargs", "target_max_tokens")
@@ -143,10 +142,13 @@ def test_a_later_config_replaces_a_table_rather_than_merging_it():
 
 
 def test_black_box_demands_a_warm_start():
-    # Its whole point is starting from the SFT checkpoint; without one it is
-    # just CoM with a one-stage ladder.
+    # Its whole point is starting from the SFT checkpoint; cleared, it is just
+    # CoM with a one-stage ladder, so the guard fires. (blackbox.yaml sets the
+    # paper's checkpoint by default, so clear it to exercise the guard.)
     with pytest.raises(ValueError, match="load_checkpoint_path"):
-        validate(parse_args(args_for("blackbox", "gemma")))
+        validate(
+            parse_args([*args_for("blackbox", "gemma"), "load_checkpoint_path=None"])
+        )
 
 
 def test_the_kl_reference_is_the_runs_own_starting_point():
@@ -239,7 +241,7 @@ def test_help_exits_cleanly_and_names_the_configs(capsys, monkeypatch):
     # then die with a traceback. It is the first command a reader runs.
     from investigator_trainer.train import main
 
-    monkeypatch.setattr("sys.argv", ["com-train", "--help"])
+    monkeypatch.setattr("sys.argv", ["train", "--help"])
     with pytest.raises(SystemExit) as exit_info:
         main()
     assert exit_info.value.code == 0
