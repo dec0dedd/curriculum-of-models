@@ -27,7 +27,7 @@ METHOD_FIELDS = (
 # A target config must pin each of these.
 TARGET_FIELDS = ("target_model_id", "chat_template_kwargs", "target_max_tokens")
 
-# Stands in for the investigator SFT warm start, which readers build themselves.
+# Stands in for the investigator SFT warm start (see configs/methods/blackbox.yaml).
 WARM_START = "tinker://run-id:train:0/weights/sft-final"
 
 

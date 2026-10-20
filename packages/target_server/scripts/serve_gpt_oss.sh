@@ -54,8 +54,9 @@ echo -e "${OK} Model ready."
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 export VLLM_USE_DEEP_GEMM=0
 
-# Also set this where GPUs cannot share memory over CUDA IPC (some
-# containers), where custom all-reduce dies with "invalid argument".
+# Custom all-reduce rejects the VMM-backed pointers that expandable_segments
+# hands it (and dies with "invalid argument" where GPUs cannot share memory
+# over CUDA IPC), so disable it whenever more than one GPU is in play.
 EXTRA=()
 [ $((TP * DP)) -gt 1 ] && EXTRA+=(--disable-custom-all-reduce)
 

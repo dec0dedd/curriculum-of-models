@@ -3,7 +3,8 @@
 Two kinds of call:
 
 * ``generate`` -- chat sampling under a named adapter (or the base weights).
-  CoM samples its current curriculum stage this way; PRBO samples its natural
+  CoM samples its current curriculum stage this way, the eval samples every
+  response this way, and PRBO samples a non-reasoning target's natural
   responses this way.
 * Token-exact PRBO: ``generate_lora_prbo_completions`` samples q (the
   refusal-free adapter) and records each response's exact token IDs and
@@ -88,7 +89,6 @@ class VLLMTarget:
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.chat_template_kwargs = chat_template_kwargs or {}
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
         self.client = AsyncOpenAI(
             base_url=f"{base_url.rstrip('/')}/v1",
             api_key=os.getenv("VLLM_API_KEY", "EMPTY"),
@@ -120,6 +120,12 @@ class VLLMTarget:
         return texts
 
     # ── Token-exact PRBO ───────────────────────────────────────────────────────
+
+    @cached_property
+    def tokenizer(self) -> Any:
+        """Loaded on first use: ``generate`` needs none, so a served adapter name
+        such as ``alpha_1_0``, which is not an HF repo, works as ``model_id``."""
+        return AutoTokenizer.from_pretrained(self.model_id)
 
     @cached_property
     def splits_reasoning(self) -> bool:

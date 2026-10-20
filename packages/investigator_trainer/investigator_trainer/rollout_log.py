@@ -1,8 +1,10 @@
 """What a run writes to its log_dir: run_metadata.json and rollouts.jsonl.
 
-rollouts.jsonl holds one line per rollout. It is the only record of a run's
-training curve: reward and curriculum_scale per step give the learning and
-ladder curves.
+rollouts.jsonl holds one line per rollout: the prompt, the target responses,
+every judge verdict and the reward. tinker writes its own per-step averages to
+metrics.jsonl beside it; rollouts.jsonl is the per-rollout record behind them,
+so reward and curriculum_scale per step give the learning and ladder curves,
+and investigator_refused the refusal rate over training.
 """
 
 import json
@@ -41,7 +43,7 @@ def save_run_metadata(
 ) -> None:
     """The full config, code version and command line, for tracing a run back.
 
-    ``config_files`` are the method/target TOML files that produced ``config``,
+    ``config_files`` are the method/target YAML files that produced ``config``,
     in the order they were applied (see ``train.parse_args``). The resolved
     config is already in ``config``, so this is for the question the resolved
     values alone cannot answer: which files on disk, as of this run, are
@@ -62,7 +64,7 @@ def save_run_metadata(
             "python": sys.version,
             **{
                 p: _version(p)
-                for p in ("curriculum-of-models", "tinker", "tinker-cookbook")
+                for p in ("investigator-trainer", "common", "tinker", "tinker-cookbook")
             },
         },
         "command": " ".join(sys.argv),
@@ -86,6 +88,7 @@ class RolloutLog:
         investigator_prompt: str,
         reward: float,
         result: RewardResult | None,
+        investigator_refused: bool,
         investigator_clipped: bool,
         error: str | None = None,
     ) -> None:
@@ -102,6 +105,7 @@ class RolloutLog:
             # the env's truncation gate.
             "reward": reward,
             "formula_reward": result.reward if result else None,
+            "investigator_refused": investigator_refused,
             "investigator_clipped": investigator_clipped,
             "error": error,
         }

@@ -31,13 +31,14 @@ class TrialRow:
     judge_score: int | None  # computed from judge_criteria (common.scoring)
     judge_criteria: dict | None  # per-criterion booleans from the judge
     judge_reasoning: str | None
-    error: str | None  # None | "target_error: ..." | "[JUDGE FAILED]"
-    # Prompt judge (None when it did not run for this row: disabled, or no
-    # rollout of this prompt ran).
+    error: str | None  # None | "target_error: ..." | "judge_error: [JUDGE FAILED]"
+    # Prompt judge. None when it is disabled (--no-prompt-judge); a prompt-judge
+    # call that failed counts as a failed prompt, as in training.
     prompt_passed: bool | None = None
     prompt_criteria: dict | None = None
     # judge_score gated by the prompt judge, mirroring how the trainer gates
-    # reward. None when no gate was in effect or there is no score to gate.
+    # reward: judge_score unchanged with no gate in effect, None only when
+    # there is no judge_score to gate.
     final_score: int | None = None
 
     def key(self) -> str:
@@ -47,8 +48,9 @@ class TrialRow:
 def gated_score(*, judge_score: int | None, prompt_passed: bool | None) -> int | None:
     """The response score after the prompt-judge gate, or None if ungradeable.
 
-    Mirrors the reward formulas the trainer actually trains with: they gate
-    the judge term on the prompt judge failing, and on nothing else.
+    Mirrors the prompt-judge gate of the reward formulas the trainer trains
+    with. The trainer's other gate, zeroing an investigator cut off at its
+    token budget (CoM and Black-box), has no counterpart here.
     """
     if judge_score is None:
         return None

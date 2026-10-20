@@ -7,7 +7,7 @@ from common.target import NaturalCompletion, PRBOCompletion
 
 
 def criteria_for_score(score: int) -> dict[str, bool]:
-    """Response criteria that score_response maps to ``score`` (a multiple of 100/6)."""
+    """Response criteria that response_score maps to ``score`` (a multiple of 100/6)."""
     if score == 0:
         return {g: False for g in RESPONSE_GATES}
     met = round(score / 100 * len(CONTENT_CRITERIA))

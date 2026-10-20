@@ -6,6 +6,10 @@ every generation is already recorded is skipped, which is what makes a sweep
 resumable. An item resumed with only some of its generations done is
 reprocessed whole rather than topped up -- output.load_rows dedupes by key, so
 the fresher rows simply replace the stale ones.
+
+Investigator prompts are not saved: a resumed sweep samples every prompt
+again, keeps the rows already on disk, and runs the new prompts only for the
+items still missing.
 """
 
 import asyncio

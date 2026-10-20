@@ -53,7 +53,7 @@ class TrainConfig:
     # counterpart (or the base model when starting fresh).
     kl_reference_checkpoint_path: str | None = None
 
-    # ── Target (served by vLLM, see scripts/serve_*.sh) ───────────────────────
+    # ── Target (served by vLLM, see target_server/scripts/serve_*.sh) ─────────
     target_model_id: str = "google/gemma-4-31B-it"
     vllm_base_url: str = "http://localhost:8000"
     chat_template_kwargs: dict = chz.field(

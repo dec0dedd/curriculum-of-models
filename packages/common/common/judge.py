@@ -29,14 +29,15 @@ logger = logging.getLogger(__name__)
 DEFAULT_JUDGE_MODEL = "openai/gpt-oss-120b"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-# The cheapest gpt-oss-120b providers on OpenRouter, in order. Pinning them also
-# keeps cross-provider quantization differences out of the reward.
+# The cheapest gpt-oss-120b providers on OpenRouter, tried in this order.
+# Preferring them keeps most calls on the same few deployments; fallbacks stay
+# on, so another provider serves a call only when all three fail.
 JUDGE_PROVIDERS = ["wandb", "deepinfra", "dekallm"]
 
 # A stalled socket never raises, so without a per-attempt timeout one hung call
 # holds up a whole training step. The deadline bounds one judge call across all
 # retries; a call that exhausts it returns an empty verdict (every criterion
-# false, score 0) and is counted in Judge.failed_calls.
+# false, score 0) whose reasoning is JUDGE_FAILED.
 REQUEST_TIMEOUT_S = 120.0
 TOTAL_DEADLINE_S = 600.0
 MAX_ATTEMPTS = 10
@@ -111,30 +112,19 @@ class Judge:
         self.reasoning_effort = reasoning_effort
         self.providers = JUDGE_PROVIDERS if providers is None else providers
 
-        self.total_calls = 0
-        self.failed_calls = 0
-        self.retries = 0
-        self.prompt_tokens = 0
-        self.completion_tokens = 0
-        self.cost_usd = 0.0
-
     async def _call(
         self, system_prompt: str, user_message: str, criteria: Sequence[str]
     ) -> tuple[dict[str, bool], str]:
         """One judge call: (criteria, reasoning). ({}, reason) once retries run out."""
 
-        def _count_retry(_state) -> None:
-            self.retries += 1
-
         @retry(
             stop=stop_after_attempt(MAX_ATTEMPTS) | stop_after_delay(TOTAL_DEADLINE_S),
             wait=wait_exponential(multiplier=1, min=1, max=10),
             before_sleep=before_sleep_log(logger, logging.WARNING),
-            after=_count_retry,
             reraise=True,
         )
         async def _attempt() -> tuple[dict[str, bool], str]:
-            extra_body: dict[str, Any] = {"usage": {"include": True}}
+            extra_body: dict[str, Any] = {}
             if self.reasoning_effort:
                 extra_body["reasoning"] = {"effort": self.reasoning_effort}
             if self.providers:
@@ -153,17 +143,6 @@ class Judge:
                 timeout=REQUEST_TIMEOUT_S,
                 extra_body=extra_body,
             )
-            self.total_calls += 1
-            usage = response.usage
-            if usage is not None:
-                self.prompt_tokens += usage.prompt_tokens or 0
-                self.completion_tokens += usage.completion_tokens or 0
-                cost = getattr(usage, "cost", None) or (usage.model_extra or {}).get(
-                    "cost"
-                )
-                if cost is not None:
-                    self.cost_usd += float(cost)
-
             message = response.choices[0].message
             content = (message.content or "").strip()
             if not content:
@@ -176,7 +155,6 @@ class Judge:
         try:
             return await _attempt()
         except Exception:
-            self.failed_calls += 1
             logger.exception(
                 "Judge call failed after retries; returning an empty verdict."
             )
@@ -212,14 +190,3 @@ class Judge:
             )
 
         return list(await asyncio.gather(*(_judge(r) for r in responses)))
-
-    def stats(self) -> dict[str, float]:
-        """Cumulative counters, for logging."""
-        return {
-            "judge/total_calls": float(self.total_calls),
-            "judge/failed_calls": float(self.failed_calls),
-            "judge/retries": float(self.retries),
-            "judge/prompt_tokens": float(self.prompt_tokens),
-            "judge/completion_tokens": float(self.completion_tokens),
-            "judge/cost_usd": self.cost_usd,
-        }

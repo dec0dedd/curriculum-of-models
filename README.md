@@ -57,7 +57,7 @@ runs.
 cp .env.example .env     # OPENROUTER_API_KEY, TINKER_API_KEY, HF_TOKEN, WANDB_API_KEY
 make sync                # every CPU package
 make sync-server         # vLLM, Linux + CUDA only
-make test                # 168 tests
+make test                # 163 tests
 ```
 
 Per package: `cd packages/<pkg> && uv sync && uv run pytest`. Don't run
@@ -99,8 +99,11 @@ cd packages/investigator_trainer
 uv run com-train methods/com.yaml      targets/gemma.yaml   behavior_ids=transluce_tabun
 uv run com-train methods/prbo.yaml     targets/gpt_oss.yaml behavior_ids=transluce_hmtd
 uv run com-train methods/blackbox.yaml targets/gemma.yaml   behavior_ids=transluce_vx \
-    load_checkpoint_path=tinker://...
+    load_checkpoint_path=tinker://dc6e07a3-5e75-5480-bd95-57ddd75a4394:train:0/weights/sft-final
 ```
+
+Black-box needs `load_checkpoint_path`: the paper's investigator SFT warm start
+above, which every Black-box run in the paper used.
 
 A plain argument is a config file, resolved as given or else against
 [`configs/`](configs/); anything with an `=` is a field override. The methods
@@ -171,8 +174,8 @@ uv run build-ladder --help         # target_server: ladder-builder flags
 | Stage | Package | State |
 |---|---|---|
 | 1, serving | `target_server` | complete, 14 tests |
-| 2, training | `investigator_trainer`, `common` | complete, 113 tests |
-| 3, eval | `cbrn_eval` | complete, 41 tests |
+| 2, training | `investigator_trainer`, `common` | complete, 110 tests |
+| 3, eval | `cbrn_eval` | complete, 39 tests |
 
 ## The paper's runs
 

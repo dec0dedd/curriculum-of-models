@@ -1,5 +1,9 @@
 # gpt-oss always reasons -- vLLM returns the final channel as the response and
 # PRBO scores only the response tokens -- so it has no non-reasoning variant.
+#
+# target_max_tokens: the paper's gpt-oss CoM runs used 2400 or 6000, and 21 of
+# its 33 PRBO runs 7000. Keep this below serve_gpt_oss.sh's MAX_MODEL_LEN
+# (8192) minus the ~580-token prompt.
 target_model_id: openai/gpt-oss-120b
 target_max_tokens: 7000
 chat_template_kwargs: {}

@@ -1,7 +1,7 @@
 """Export completed sweeps to CSV: one file per run, plus an index.
 
 The schema rules live here so they can be unit tested independently of the
-CLI around them (cli.export).
+CLI around them (cli.export_cmd).
 """
 
 import csv

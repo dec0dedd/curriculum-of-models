@@ -33,7 +33,8 @@ from investigator_trainer.rewards.base import (
 from common.scoring import response_score
 from common.target import PRBOCompletion, VLLMTarget
 
-# The proposal adapter, served by vLLM under this name (scripts/serve_*.sh).
+# The proposal adapter, served by vLLM under this name
+# (target_server/scripts/serve_*.sh).
 DEFAULT_PROPOSAL_LORA = "alpha_1_0"
 
 PRBO_MIN_SCORE = -100.0

@@ -1,7 +1,7 @@
-"""Evaluation metrics shared across the cbrn_eval notebooks and code.
+"""pass@k, for analysing a sweep's per-prompt scores.
 
-The canonical home for ``pass_at_k`` so notebooks import one definition rather
-than each carrying a copy.
+The sweep itself does not call it: it is here so an analysis of the exported
+CSVs imports one tested definition rather than carrying its own copy.
 """
 
 from math import prod

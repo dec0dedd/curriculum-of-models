@@ -2,11 +2,11 @@
 # one-stage ladder, started from the investigator SFT warm start.
 #
 # load_checkpoint_path has no default and the run refuses to start without it.
-# Build a warm start with the investigator SFT pipeline (see the README) and
-# pass its /weights/ path:
+# Pass the SFT warm start's /weights/ path. Every Black-box run in the paper,
+# on both targets, used this one:
 #
 #   com-train methods/blackbox.yaml targets/gemma.yaml \
-#       load_checkpoint_path=tinker://<your-run>/weights/sft-final
+#       load_checkpoint_path=tinker://dc6e07a3-5e75-5480-bd95-57ddd75a4394:train:0/weights/sft-final
 reward_type: curriculum
 curriculum_scales: [0.0]
 curriculum_threshold: 60.0

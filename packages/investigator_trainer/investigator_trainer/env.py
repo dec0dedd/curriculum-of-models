@@ -29,6 +29,7 @@ from tinker_cookbook.tokenizer_utils import get_tokenizer
 from common.behaviors import Behavior, behaviors_for_step, resolve_behaviors
 from common.judge import Judge
 from common.prompts import INVESTIGATOR_SYSTEM_PROMPT
+from common.refusal import is_investigator_refusal
 from investigator_trainer.rewards import (
     CombinedEstimatorReward,
     CurriculumReward,
@@ -98,6 +99,7 @@ class InvestigatorEnv(Env):
                 for b in investigator_prompt
                 if b.get("type") == "text"
             )
+        investigator_refused = is_investigator_refusal(investigator_prompt)
         investigator_clipped = len(action) >= self.investigator_max_tokens - 1
 
         result: RewardResult | None = None
@@ -128,6 +130,7 @@ class InvestigatorEnv(Env):
             investigator_prompt=investigator_prompt,
             reward=reward,
             result=result,
+            investigator_refused=investigator_refused,
             investigator_clipped=investigator_clipped,
             error=error,
         )
@@ -138,6 +141,7 @@ class InvestigatorEnv(Env):
                 "reward/trained": reward,
                 "target/rollout_failed": float(result is None),
                 "target/is_clipped": self._clipped_fraction(result),
+                "investigator/is_refusal": float(investigator_refused),
                 "investigator/is_clipped": float(investigator_clipped),
                 "investigator/clean_termination": float(clean),
                 "investigator/completion_tokens": float(len(action)),
@@ -165,7 +169,10 @@ class InvestigatorEnv(Env):
         """Share of target samples that ran into target_max_tokens.
 
         The judge gives a cut-off response full credit, so this is the only
-        sign that target_max_tokens is too low.
+        sign that target_max_tokens is too low. For a reasoning target only the
+        final response is counted, not the reasoning that also spent the
+        budget, so this undercounts: a sample cut off mid-reasoning comes back
+        empty and shows in target/is_empty instead.
         """
         if result is None or not result.responses:
             return 0.0
