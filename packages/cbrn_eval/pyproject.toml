@@ -10,7 +10,7 @@ dependencies = [
     "polars>=1.30",
     "python-dotenv",
     "rich",
-    "tinker>=0.25.0,<0.26",
+    "tinker>=0.34.0,<0.35",
     "tinker-cookbook>=0.5.4,<0.6",
 ]
 

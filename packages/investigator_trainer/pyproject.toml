@@ -9,7 +9,7 @@ dependencies = [
     "httpx",
     "python-dotenv",
     "pyyaml>=6.0",
-    "tinker>=0.25.0,<0.26",
+    "tinker>=0.34.0,<0.35",
     "tinker-cookbook>=0.5.4,<0.6",
     "wandb",
 ]
