@@ -1,4 +1,7 @@
+import json
 from types import SimpleNamespace
+
+import pytest
 
 from common.behaviors import Behavior
 from investigator_trainer.env import InvestigatorEnv
@@ -58,14 +61,18 @@ async def test_a_truncated_rollout_keeps_its_reward(tmp_path):
     assert result.metrics["investigator/clean_termination"] == 0.0
 
 
-async def test_a_failed_rollout_is_zeroed_not_raised(tmp_path):
+async def test_a_failed_rollout_raises_and_is_logged(tmp_path):
+    # No stand-in reward: the error reaches tinker's rollout strategy, which
+    # retries the rollout or drops its group.
     class BrokenTarget(FakeTarget):
         async def generate(self, *args, **kwargs):
             raise ConnectionError("vLLM is down")
 
-    result = await make_env(tmp_path, target=BrokenTarget()).step([1])
-    assert result.reward == 0.0
-    assert result.metrics["target/rollout_failed"] == 1.0
+    with pytest.raises(ConnectionError):
+        await make_env(tmp_path, target=BrokenTarget()).step([1])
+    (record,) = [json.loads(line) for line in open(tmp_path / "rollouts.jsonl")]
+    assert record["reward"] is None
+    assert "vLLM is down" in record["error"]
 
 
 async def test_an_investigator_refusal_is_logged_but_not_gated(tmp_path):

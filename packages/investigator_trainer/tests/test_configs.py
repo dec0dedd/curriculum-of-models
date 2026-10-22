@@ -1,7 +1,9 @@
 """The config files and the loader: the interface every paper run is launched through."""
 
 import pytest
+from tinker_cookbook.rl.rollout_strategy import RetryOnFailure
 
+from investigator_trainer import train as train_module
 from investigator_trainer.config_file import ConfigFileError, available, load_config
 from investigator_trainer.train import (
     CONFIGS_DIR,
@@ -248,3 +250,23 @@ def test_help_exits_cleanly_and_names_the_configs(capsys, monkeypatch):
     printed = capsys.readouterr().out
     for name in (*METHODS, *TARGETS):
         assert name in printed
+
+
+async def test_tinker_gets_rolling_checkpoints_and_rollout_retries(
+    monkeypatch, tmp_path
+):
+    # A crash should lose one step, not up to save_every; a failed rollout is
+    # retried rather than trained on with a stand-in reward.
+    captured = {}
+
+    async def fake_tinker_train(config):
+        captured["config"] = config
+
+    monkeypatch.setattr(train_module, "tinker_train", fake_tinker_train)
+    cfg = parse_args([*args_for("prbo", "gemma"), f"log_path={tmp_path / 'run'}"])
+    await train_module.train(cfg)
+
+    config = captured["config"]
+    assert config.rolling_save_every == 1
+    assert config.rolling_ttl_seconds == 2 * 24 * 60 * 60
+    assert config.rollout_error_tolerance == RetryOnFailure(max_retries=3)

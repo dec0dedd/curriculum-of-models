@@ -98,8 +98,6 @@ class InvestigatorEnv(Env):
         investigator_refused = is_investigator_refusal(investigator_prompt)
         investigator_clipped = len(action) >= self.investigator_max_tokens - 1
 
-        result: RewardResult | None = None
-        error: str | None = None
         try:
             result = await self.reward_formula.compute_reward(
                 investigator_prompt=investigator_prompt,
@@ -110,30 +108,39 @@ class InvestigatorEnv(Env):
                 n_target_samples=1,
             )
         except Exception as e:
-            # A failed target or judge call, or a PRBO sample that cannot be
-            # scored token by token. Zero this rollout rather than fail the run.
+            # A failed target call, or a PRBO sample that cannot be scored
+            # token by token. No reward stands in for it: any fixed value would
+            # be near the best PRBO reward or the worst CoM one. Raise so the
+            # rollout strategy (train.py) retries it, or drops its group.
             logger.exception(f"[step {self.step_index}] rollout {self.env_id} failed")
-            error = repr(e)
+            self.rollout_log.write(
+                step=self.step_index,
+                env_id=self.env_id,
+                behavior_id=self.behavior.behavior_id,
+                investigator_prompt=investigator_prompt,
+                result=None,
+                investigator_refused=investigator_refused,
+                investigator_clipped=investigator_clipped,
+                error=repr(e),
+            )
+            raise
 
-        reward = result.reward if result is not None else 0.0
+        reward = result.reward
 
         self.rollout_log.write(
             step=self.step_index,
             env_id=self.env_id,
             behavior_id=self.behavior.behavior_id,
             investigator_prompt=investigator_prompt,
-            reward=reward,
             result=result,
             investigator_refused=investigator_refused,
             investigator_clipped=investigator_clipped,
-            error=error,
         )
 
-        metrics: dict[str, float] = dict(result.metrics) if result is not None else {}
+        metrics: dict[str, float] = dict(result.metrics)
         metrics.update(
             {
                 "reward/trained": reward,
-                "target/rollout_failed": float(result is None),
                 "target/is_clipped": self._clipped_fraction(result),
                 "investigator/is_refusal": float(investigator_refused),
                 "investigator/is_clipped": float(investigator_clipped),
@@ -159,9 +166,9 @@ class InvestigatorEnv(Env):
             metrics=metrics,
         )
 
-    def _clipped_fraction(self, result: RewardResult | None) -> float:
+    def _clipped_fraction(self, result: RewardResult) -> float:
         """Share of target samples that hit target_max_tokens."""
-        if result is None or not result.responses:
+        if not result.responses:
             return 0.0
         limit = self.target.max_tokens - CLIP_MARGIN_TOKENS
         clipped = sum(
