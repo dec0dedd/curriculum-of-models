@@ -1,7 +1,10 @@
-"""Output files: <output_dir>/<run_id>_full.{jsonl,parquet} and _summary.json.
+"""Output files: <output_dir>/<run_id>_full.{jsonl,parquet}, _prompts.jsonl and
+_summary.json.
 
 full.jsonl gets one row per trial, appended as trials complete -- its
-presence without a summary marks a resumable run. summary.json is written
+presence without a summary marks a resumable run. prompts.jsonl holds the
+sampled investigator prompts, so a resume reuses them rather than sampling
+again. summary.json is written
 once at the end and marks the run complete (the cache hit signal).
 
 On completion the streamed full.jsonl is compacted to full.parquet (zstd) and
@@ -69,6 +72,11 @@ def summary_path(output_dir: str, run_id: str) -> Path:
     return Path(output_dir) / f"{run_id}_summary.json"
 
 
+def prompts_path(output_dir: str, run_id: str) -> Path:
+    """Investigator prompts, appended as sampled, so a resume reuses them."""
+    return Path(output_dir) / f"{run_id}_prompts.jsonl"
+
+
 def _key(r: dict) -> str:
     return f"{r['behavior_id']}:{r['prompt_index']}:{r['generation_index']}"
 
@@ -116,7 +124,9 @@ def write_full_parquet(output_dir: str, run_id: str, rows: list[dict]) -> Path:
     parquet = full_parquet_path(output_dir, run_id)
     parquet.parent.mkdir(parents=True, exist_ok=True)
     tmp = parquet.with_suffix(".parquet.tmp")
-    pl.DataFrame(rows).write_parquet(tmp, compression="zstd")
+    # Infer the schema from every row, not polars' default first 100: those
+    # can all be target errors with null scores and criteria.
+    pl.DataFrame(rows, infer_schema_length=None).write_parquet(tmp, compression="zstd")
     tmp.replace(parquet)
     return parquet
 
@@ -141,6 +151,7 @@ def remove_run_outputs(output_dir: str, run_id: str) -> None:
         summary_path(output_dir, run_id),
         full_path(output_dir, run_id),
         full_parquet_path(output_dir, run_id),
+        prompts_path(output_dir, run_id),
     ):
         path.unlink(missing_ok=True)
 

@@ -7,9 +7,8 @@ resumable. An item resumed with only some of its generations done is
 reprocessed whole rather than topped up -- output.load_rows dedupes by key, so
 the fresher rows simply replace the stale ones.
 
-Investigator prompts are not saved: a resumed sweep samples every prompt
-again, keeps the rows already on disk, and runs the new prompts only for the
-items still missing.
+Investigator prompts are saved as they are sampled (output.prompts_path), so
+a resumed sweep reuses them and samples only the ones it never got.
 """
 
 import asyncio
@@ -123,7 +122,9 @@ async def run_sweep(config: EvalConfig, run_id: str) -> dict:
         logger.info(f"Resuming: {len(done)} trial(s) already completed")
 
     logger.info("Building prompt items...")
-    items = await build_prompt_items(config)
+    items = await build_prompt_items(
+        config, output.prompts_path(config.output_dir, run_id)
+    )
     n_behaviors = len({i.behavior_id for i in items})
     logger.info(f"{len(items)} prompt item(s) across {n_behaviors} behavior(s)")
 
@@ -137,23 +138,34 @@ async def run_sweep(config: EvalConfig, run_id: str) -> dict:
     judge = Judge(model=config.judge_model, max_tokens=config.judge_max_tokens)
     target_sem = asyncio.Semaphore(config.target_concurrency)
     judge_sem = asyncio.Semaphore(config.judge_concurrency)
+    # Enough items in flight to keep both stages busy, without starting a
+    # prompt-judge call for every item at once.
+    item_sem = asyncio.Semaphore(config.target_concurrency + config.judge_concurrency)
     write_lock = asyncio.Lock()
 
     n_done = 0
     n_total = len(items)
 
+    async def _judge_prompt(item: PromptItem) -> tuple[dict, str]:
+        # Shares judge_sem with the response judge: one OpenRouter client, one
+        # budget. Unbounded, these calls hit 429s, fail, and gate scores to 0.
+        async with judge_sem:
+            return await judge.score_prompt(
+                behavior=item.behavior, investigator_prompt=item.prompt
+            )
+
     async def _process(item: PromptItem) -> None:
+        async with item_sem:
+            await _process_item(item)
+
+    async def _process_item(item: PromptItem) -> None:
         nonlocal n_done
         if _expected_keys(config, item) <= done:
             n_done += 1
             return
 
         prompt_verdict = (
-            asyncio.create_task(
-                judge.score_prompt(
-                    behavior=item.behavior, investigator_prompt=item.prompt
-                )
-            )
+            asyncio.create_task(_judge_prompt(item))
             if config.use_prompt_judge
             else None
         )
@@ -194,6 +206,10 @@ async def run_sweep(config: EvalConfig, run_id: str) -> dict:
             await reporter
 
     logger.info(f"{n_done}/{n_total} prompt item(s) complete")
+    # Compact the streamed jsonl to a much smaller zstd parquet before the
+    # summary marks the run complete, so a failed compaction is retried on the
+    # next invocation rather than left behind a cache hit.
+    output.compact_full(config.output_dir, run_id)
     rows = output.load_rows(config.output_dir, run_id)
     summary = output.write_summary(
         config.output_dir,
@@ -203,6 +219,4 @@ async def run_sweep(config: EvalConfig, run_id: str) -> dict:
         datetime.now(timezone.utc).isoformat(),
         rows,
     )
-    # Run complete: compact the streamed jsonl to a much smaller zstd parquet.
-    output.compact_full(config.output_dir, run_id)
     return summary

@@ -135,3 +135,29 @@ def test_remove_run_outputs_deletes_everything(tmp_path):
     output.remove_run_outputs(output_dir, "run1")
     assert not output.full_parquet_path(output_dir, "run1").exists()
     assert not output.summary_path(output_dir, "run1").exists()
+
+
+def test_compact_survives_more_than_100_leading_null_rows(tmp_path):
+    # polars infers a schema from the first 100 rows by default; a sweep whose
+    # first rows are all target errors would then fail on the first score.
+    output_dir = str(tmp_path)
+    for i in range(150):
+        output.append_row(
+            output_dir,
+            "run1",
+            _row(
+                prompt_index=i,
+                target_completion=None,
+                judge_score=None,
+                judge_criteria=None,
+                error="target_error: boom",
+            ),
+        )
+    output.append_row(output_dir, "run1", _row(prompt_index=150))
+
+    output.compact_full(output_dir, "run1")
+
+    rows = output.load_rows(output_dir, "run1")
+    assert len(rows) == 151
+    scored = [r for r in rows if r["judge_score"] is not None]
+    assert scored[0]["judge_criteria"] == {"addresses_exact_target": True}
