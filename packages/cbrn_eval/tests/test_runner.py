@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import pytest
@@ -141,3 +142,56 @@ async def test_a_target_failure_is_recorded_per_generation(
     assert all(r["target_completion"] is None for r in rows)
     assert all("target_error" in r["error"] for r in rows)
     assert judge.response_calls == []  # never reached
+
+
+class _ConcurrencyTrackingJudge(FakeJudge):
+    """Records the most judge calls (prompt and response) in flight at once."""
+
+    def __init__(self):
+        super().__init__(default_score=50)
+        self.in_flight = 0
+        self.max_in_flight = 0
+
+    async def _track(self):
+        self.in_flight += 1
+        self.max_in_flight = max(self.max_in_flight, self.in_flight)
+        await asyncio.sleep(0.01)
+        self.in_flight -= 1
+
+    async def score_prompt(self, **kwargs):
+        await self._track()
+        return await super().score_prompt(**kwargs)
+
+    async def score_responses(self, **kwargs):
+        await self._track()
+        return await super().score_responses(**kwargs)
+
+
+async def test_the_prompt_judge_respects_judge_concurrency(
+    monkeypatch, tmp_path, behaviors_file
+):
+    judge = _ConcurrencyTrackingJudge()
+    _patch(monkeypatch, FakeTarget(), judge)
+
+    config = _config(tmp_path, behaviors_file, judge_concurrency=1)
+    await run_sweep(config, "run1")
+
+    assert len(judge.prompt_calls) == 2
+    assert judge.max_in_flight == 1
+
+
+async def test_a_failed_compaction_leaves_the_run_resumable(
+    monkeypatch, tmp_path, behaviors_file
+):
+    _patch(monkeypatch, FakeTarget(), FakeJudge(default_score=50))
+
+    def _broken_compact(output_dir, run_id):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(output, "compact_full", _broken_compact)
+    config = _config(tmp_path, behaviors_file)
+    with pytest.raises(RuntimeError, match="disk full"):
+        await run_sweep(config, "run1")
+
+    # No summary, so the next invocation is not a cache hit.
+    assert not output.summary_path(config.output_dir, "run1").exists()

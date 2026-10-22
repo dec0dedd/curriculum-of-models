@@ -63,3 +63,53 @@ async def test_investigator_source_generates_n_per_behavior(
     for item in items:
         by_behavior.setdefault(item.behavior_id, []).append(item.prompt_index)
     assert by_behavior == {"a": [0, 1, 2], "b": [0, 1, 2]}
+
+
+async def test_investigator_prompts_are_saved_and_reused(
+    monkeypatch, tmp_path, behaviors_file
+):
+    monkeypatch.setattr(sources, "TinkerInvestigatorBackend", _FakeBackend)
+    config = EvalConfig(
+        prompt_source="investigator",
+        behaviors_file=behaviors_file,
+        n_investigator_generations=3,
+    )
+    prompts_file = tmp_path / "out" / "run1_prompts.jsonl"
+    first = await build_prompt_items(config, prompts_file)
+    assert len(prompts_file.read_text().splitlines()) == 6
+
+    # Every prompt is on disk, so a resume never builds a backend.
+    class _NoBackend:
+        @classmethod
+        async def create(cls, config):
+            raise AssertionError("resampled a saved prompt")
+
+    monkeypatch.setattr(sources, "TinkerInvestigatorBackend", _NoBackend)
+    assert await build_prompt_items(config, prompts_file) == first
+
+
+async def test_a_resume_samples_only_the_missing_prompts(
+    monkeypatch, tmp_path, behaviors_file
+):
+    prompts_file = tmp_path / "run1_prompts.jsonl"
+    prompts_file.write_text(
+        json.dumps({"behavior_id": "a", "prompt_index": 0, "prompt": "saved"}) + "\n"
+    )
+    backend = _FakeBackend()
+
+    async def _create(config):
+        return backend
+
+    monkeypatch.setattr(
+        sources, "TinkerInvestigatorBackend", type("B", (), {"create": _create})
+    )
+    config = EvalConfig(
+        prompt_source="investigator",
+        behaviors_file=behaviors_file,
+        n_investigator_generations=2,
+    )
+    items = await build_prompt_items(config, prompts_file)
+
+    assert len(backend.calls) == 3  # a:1, b:0, b:1
+    assert items[0].prompt == "saved"
+    assert len(prompts_file.read_text().splitlines()) == 4

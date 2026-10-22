@@ -139,8 +139,9 @@ uv run eval sweep --investigator-model tinker://... --target-model google/gemma-
 sends each behavior verbatim as a direct-ask baseline), rolls them out
 against the target, and judges them; `--behaviors-file`/`--behavior-ids`
 mirror the trainer's. Results land in `eval_results/<run_id>_{full.parquet,
-summary.json}`, where `run_id` hashes every result-affecting input, so a
-completed run is not repeated and an interrupted one resumes. The per-behavior
+prompts.jsonl,summary.json}`, where `run_id` hashes every result-affecting
+input, so a completed run is not repeated and an interrupted one resumes,
+reusing the investigator prompts it already sampled. The per-behavior
 means are in `summary.json`; the full per-prompt scores are in the parquet.
 Plotting lives in the paper repo, not here.
 

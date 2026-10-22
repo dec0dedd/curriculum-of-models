@@ -20,6 +20,7 @@ import chz
 from chz.blueprint import EntrypointHelpException
 from dotenv import load_dotenv
 from tinker_cookbook import cli_utils
+from tinker_cookbook.rl.rollout_strategy import RetryOnFailure
 from tinker_cookbook.rl.train import Config, KLReferenceConfig
 from tinker_cookbook.rl.train import main as tinker_train
 
@@ -120,6 +121,18 @@ class TrainConfig:
     # Server-side checkpoint retention in seconds. None keeps them.
     ttl_seconds: int | None = None
 
+    # A cheap crash-restore checkpoint every N steps (0 disables), so a crash
+    # loses at most N steps rather than up to save_every. Only one is kept.
+    rolling_save_every: int = 1
+
+    # Retention for the rolling checkpoint: long enough to resume a crash
+    # noticed the next day.
+    rolling_ttl_seconds: int = 2 * 24 * 60 * 60
+
+    # Failed rollouts (target error, unscorable PRBO sample) a group may retry,
+    # in total, before the group is dropped from its step.
+    rollout_max_retries: int = 3
+
     reasoning_max_chars: int = 5000
 
     behavior_if_log_dir_exists: cli_utils.LogdirBehavior = "ask"
@@ -203,6 +216,11 @@ async def train(cfg: TrainConfig, config_files: Sequence[str | Path] = ()) -> No
         wandb_name=run_name,
         save_every=cfg.save_every,
         ttl_seconds=cfg.ttl_seconds,
+        rolling_save_every=cfg.rolling_save_every,
+        rolling_ttl_seconds=cfg.rolling_ttl_seconds,
+        # A failed rollout gets no stand-in reward: it is rerun with a fresh
+        # env, and a group that runs out of retries is skipped.
+        rollout_error_tolerance=RetryOnFailure(max_retries=cfg.rollout_max_retries),
     )
     await tinker_train(config)
 

@@ -79,7 +79,6 @@ class RolloutLog:
         env_id: int,
         behavior_id: str,
         investigator_prompt: str,
-        reward: float,
         result: RewardResult | None,
         investigator_refused: bool,
         investigator_clipped: bool,
@@ -94,10 +93,9 @@ class RolloutLog:
             "env_id": env_id,
             "behavior_id": behavior_id,
             "investigator_prompt": investigator_prompt,
-            # The reward the policy was trained on; formula_reward is what the
-            # reward formula returned, or null if the rollout failed before one.
-            "reward": reward,
-            "formula_reward": result.reward if result else None,
+            # Null for a failed rollout: it is never trained on, but retried
+            # or its group dropped; `error` says why.
+            "reward": result.reward if result else None,
             "investigator_refused": investigator_refused,
             "investigator_clipped": investigator_clipped,
             "error": error,
