@@ -1,6 +1,6 @@
 # Black-box baseline: curriculum reward, one-stage ladder (base target only),
 # from the SFT warm start. Override load_checkpoint_path, or clear it with
-# load_checkpoint_path=None to supply your own.
+# load_checkpoint_path=None to start from the base investigator.
 reward_type: curriculum
 curriculum_scales: [0.0]
 curriculum_threshold: 60.0

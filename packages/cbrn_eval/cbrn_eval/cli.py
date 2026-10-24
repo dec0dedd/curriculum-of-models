@@ -101,7 +101,7 @@ def main() -> None:
 def sweep(force_rerun: bool, behavior_ids: tuple[str, ...], **kwargs) -> None:
     """Sample investigator prompts, roll them out against the target, and judge them.
 
-    Results land in <output-dir>/<run_id>_{full.parquet,summary.json}, where
+    Results land in <output-dir>/<run_id>_{full.parquet,prompts.jsonl,summary.json}, where
     run_id is a hash of every result-affecting input. A completed run with the
     same run_id is not repeated (--force-rerun overrides); an incomplete one
     is resumed.

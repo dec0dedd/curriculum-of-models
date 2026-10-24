@@ -147,17 +147,7 @@ def kl_reference_path(cfg: TrainConfig) -> str | None:
     return cfg.load_checkpoint_path.replace("/weights/", "/sampler_weights/")
 
 
-def validate(cfg: TrainConfig) -> None:
-    if cfg.curriculum_scales == [0.0] and cfg.reward_type == "curriculum":
-        if cfg.load_checkpoint_path is None:
-            raise ValueError(
-                "Black-box (curriculum_scales=[0.0]) starts from the SFT warm "
-                "start: set load_checkpoint_path."
-            )
-
-
 async def train(cfg: TrainConfig, config_files: Sequence[str | Path] = ()) -> None:
-    validate(cfg)
     run_name = cfg.run_name or (
         f"{cfg.reward_type}-{cfg.target_model_id.split('/')[-1]}-"
         f"{datetime.now().strftime('%Y%m%d-%H%M%S')}"

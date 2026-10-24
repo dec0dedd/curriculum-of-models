@@ -63,8 +63,8 @@ class CurriculumReward(RewardFormula):
 
     def _record(self, reward: float) -> None:
         self.batch_scores.append(reward)
-        # `>=`, not `==`: a rollout whose IO fails returns before recording,
-        # and a retried rollout records twice; either would desync `==`.
+        # Counts rollouts, not steps: a failed rollout raises before recording,
+        # so a group short one rollout completes its count in the next step.
         if len(self.batch_scores) < self.rollouts_per_step:
             return
         mean = sum(self.batch_scores) / len(self.batch_scores)

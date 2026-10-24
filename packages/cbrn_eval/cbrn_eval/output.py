@@ -172,8 +172,8 @@ def summarize(rows: list[dict]) -> dict:
             "n_judged": len(scored),
             "mean_judge_score": sum(scored) / len(scored) if scored else None,
             "max_judge_score": max(scored) if scored else None,
-            # Prompt-judge-gated view. Absent (n_prompt_judged == 0) when the
-            # prompt judge did not run, leaving the ungated numbers intact.
+            # Prompt-judge-gated view. With the prompt judge off, n_prompt_judged
+            # is 0 and the final scores equal the judge scores.
             "n_prompt_judged": sum(1 for r in rs if r.get("prompt_passed") is not None),
             "n_prompt_failed": sum(1 for r in rs if r.get("prompt_passed") is False),
             "mean_final_score": sum(gated) / len(gated) if gated else None,

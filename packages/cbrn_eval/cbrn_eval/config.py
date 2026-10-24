@@ -78,8 +78,8 @@ class EvalConfig:
     def run_id(self) -> str:
         """A slug of the target plus a hash of every result-affecting input.
 
-        Includes the contents of the behaviors file and the prompts, so editing
-        any of them gives a new id instead of resuming a stale run.
+        Includes the contents of the behaviors file and the three system prompts,
+        so editing any of them gives a new id instead of resuming a stale run.
         """
         digest = _sha(json.dumps(self.hash_payload(), sort_keys=True).encode())[:10]
         slug = "".join(

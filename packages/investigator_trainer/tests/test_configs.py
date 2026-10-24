@@ -10,7 +10,6 @@ from investigator_trainer.train import (
     TrainConfig,
     kl_reference_path,
     parse_args,
-    validate,
 )
 
 METHODS_DIR = CONFIGS_DIR / "methods"
@@ -107,9 +106,7 @@ def test_the_papers_target_values():
 @pytest.mark.parametrize("method", METHODS)
 @pytest.mark.parametrize("target", TARGETS)
 def test_every_pairing_builds(method, target):
-    extra = [f"load_checkpoint_path={WARM_START}"] if method == "blackbox" else []
-    cfg = parse_args([*args_for(method, target), *extra])
-    validate(cfg)
+    parse_args(args_for(method, target))
 
 
 def test_reasoning_targets_raise_the_token_budget():
@@ -141,16 +138,6 @@ def test_a_later_config_replaces_a_table_rather_than_merging_it():
     # must win outright, not leave the earlier key behind.
     cfg = parse_args(["targets/gemma.yaml", "targets/gpt_oss.yaml"])
     assert cfg.chat_template_kwargs == {}
-
-
-def test_black_box_demands_a_warm_start():
-    # Its whole point is starting from the SFT checkpoint; cleared, it is just
-    # CoM with a one-stage ladder, so the guard fires. (blackbox.yaml sets the
-    # paper's checkpoint by default, so clear it to exercise the guard.)
-    with pytest.raises(ValueError, match="load_checkpoint_path"):
-        validate(
-            parse_args([*args_for("blackbox", "gemma"), "load_checkpoint_path=None"])
-        )
 
 
 def test_the_kl_reference_is_the_runs_own_starting_point():

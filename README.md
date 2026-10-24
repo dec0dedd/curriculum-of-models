@@ -57,7 +57,7 @@ runs.
 cp .env.example .env     # OPENROUTER_API_KEY, TINKER_API_KEY, HF_TOKEN, WANDB_API_KEY
 make sync                # every CPU package
 make sync-server         # vLLM, Linux + CUDA only
-make test                # 163 tests
+make test                # pytest in every package
 ```
 
 Per package: `cd packages/<pkg> && uv sync && uv run pytest`. Don't run
@@ -172,9 +172,9 @@ uv run build-ladder --help         # target_server: ladder-builder flags
 
 | Stage | Package | State |
 |---|---|---|
-| 1, serving | `target_server` | complete, 14 tests |
-| 2, training | `investigator_trainer`, `common` | complete, 110 tests |
-| 3, eval | `cbrn_eval` | complete, 39 tests |
+| 1, serving | `target_server` | complete |
+| 2, training | `investigator_trainer`, `common` | complete |
+| 3, eval | `cbrn_eval` | complete |
 
 ## The paper's runs
 

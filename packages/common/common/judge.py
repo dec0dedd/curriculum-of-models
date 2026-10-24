@@ -39,9 +39,9 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 JUDGE_PROVIDERS = ["wandb", "deepinfra", "dekallm"]
 
 # A stalled socket never raises, so without a per-attempt timeout one hung call
-# holds up a whole training step. The deadline bounds one judge call across all
-# retries; a call that exhausts it returns an empty verdict (every criterion
-# false, score 0) whose reasoning is JUDGE_FAILED.
+# holds up a whole training step. Past the deadline no new attempt starts (one
+# in flight may run REQUEST_TIMEOUT_S more); a call that gives up returns an
+# empty verdict (every criterion false, score 0) whose reasoning is JUDGE_FAILED.
 REQUEST_TIMEOUT_S = 120.0
 TOTAL_DEADLINE_S = 600.0
 MAX_ATTEMPTS = 10
