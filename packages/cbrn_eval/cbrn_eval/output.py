@@ -52,8 +52,7 @@ def gated_score(*, judge_score: int | None, prompt_passed: bool | None) -> int |
     """The response score after the prompt-judge gate, or None if ungradeable.
 
     Mirrors the prompt-judge gate of the reward formulas the trainer trains
-    with. The trainer's other gate, zeroing an investigator cut off at its
-    token budget (CoM and Black-box), has no counterpart here.
+    with, which is their only gate on the investigator prompt.
     """
     if judge_score is None:
         return None
