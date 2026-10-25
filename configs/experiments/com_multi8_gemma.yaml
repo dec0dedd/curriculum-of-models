@@ -32,3 +32,5 @@ behavior_ids:
 batch_size: 4
 group_size: 64
 max_steps: 400
+
+wandb_project: inv-agents-multi-behavior-com
