@@ -4,10 +4,12 @@ import asyncio
 import json
 import logging
 import os
+import ssl
 from collections.abc import Sequence
 from typing import Any
 
-from openai import AsyncOpenAI
+import httpx2
+from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 from tenacity import (
     before_sleep_log,
     retry,
@@ -48,6 +50,16 @@ MAX_ATTEMPTS = 10
 
 # The reasoning returned with the empty verdict of a call that ran out of retries.
 JUDGE_FAILED = "[JUDGE FAILED]"
+
+# httpx2's default TLS context is truststore's, which reloads the whole CA
+# bundle on the event loop for every new connection (~25ms each). A step's burst
+# of judge calls then queues handshakes past REQUEST_TIMEOUT_S, and the retries
+# feed the queue until nearly every call fails. A stdlib context loads the
+# bundle once, and keeping as many idle connections as a step opens lets the
+# next step reuse them instead of handshaking again.
+JUDGE_CONNECTION_LIMITS = httpx2.Limits(
+    max_connections=1000, max_keepalive_connections=1000
+)
 
 
 def extract_json_object(content: str) -> dict:
@@ -110,7 +122,14 @@ class Judge:
             raise ValueError("OPENROUTER_API_KEY is not set.")
         # max_retries=0: tenacity below is the only retry layer, so the timeout
         # and deadline mean what they say.
-        self.client = AsyncOpenAI(base_url=base_url, api_key=api_key, max_retries=0)
+        self.client = AsyncOpenAI(
+            base_url=base_url,
+            api_key=api_key,
+            max_retries=0,
+            http_client=DefaultAsyncHttpxClient(
+                verify=ssl.create_default_context(), limits=JUDGE_CONNECTION_LIMITS
+            ),
+        )
         self.model = model
         self.max_tokens = max_tokens
         self.reasoning_effort = reasoning_effort
