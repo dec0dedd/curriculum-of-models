@@ -1,0 +1,37 @@
+# PRBO combined estimator, 8 behaviors, Gemma-4-31B-it with thinking off.
+#
+# Replicates the paper's multi-behavior combined-estimator runs
+# (spar-investigator-agents 5abf7686 and ae84adfd, 2026-09-18/19, commit
+# 8c833f8 on nr/prbo-transluce-range). Self-contained: it carries the method
+# and the target as well, so it is the only config the run needs.
+#
+#     uv run train experiments/prbo_multi8_gemma.yaml
+
+# method: PRBO combined estimator (configs/methods/prbo.yaml)
+reward_type: combined_estimator
+prbo_judge_scale: 1.1
+kl_penalty_coef: 0.1
+
+# target: Gemma 4 31B-it, no reasoning (configs/targets/gemma.yaml)
+target_model_id: google/gemma-4-31B-it
+target_max_tokens: 7000
+chat_template_kwargs:
+  enable_thinking: false
+
+# behaviors: the old transluce_cbrn_8.jsonl, now a subset of the 48-row file
+behavior_ids:
+  - transluce_botulinum
+  - transluce_pcp
+  - transluce_tetrodotoxin
+  - transluce_abrin
+  - transluce_cesium137
+  - transluce_picric_acid
+  - transluce_americium241
+  - transluce_tabun
+
+# rl: batch_size is the only value the defaults do not already match
+batch_size: 4
+group_size: 64
+max_steps: 400
+
+wandb_project: inv-agents-multi-behavior-combinedest

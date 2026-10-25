@@ -1,0 +1,34 @@
+# Curriculum of Models, the same 8 behaviors as experiments/prbo_multi8_gemma.yaml,
+# Gemma-4-31B-it with thinking off. The CoM counterpart of that PRBO run, so
+# the two differ only in the method. Self-contained: it carries the method and
+# the target as well, so it is the only config the run needs.
+#
+#     uv run train experiments/com_multi8_gemma.yaml
+
+# method: Curriculum of Models (configs/methods/com.yaml)
+reward_type: curriculum
+curriculum_scales: [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
+curriculum_threshold: 60.0
+kl_penalty_coef: 0.5
+
+# target: Gemma 4 31B-it, no reasoning (configs/targets/gemma.yaml)
+target_model_id: google/gemma-4-31B-it
+target_max_tokens: 7000
+chat_template_kwargs:
+  enable_thinking: false
+
+# behaviors: the old transluce_cbrn_8.jsonl, now a subset of the 48-row file
+behavior_ids:
+  - transluce_botulinum
+  - transluce_pcp
+  - transluce_tetrodotoxin
+  - transluce_abrin
+  - transluce_cesium137
+  - transluce_picric_acid
+  - transluce_americium241
+  - transluce_tabun
+
+# rl: batch_size is the only value the defaults do not already match
+batch_size: 4
+group_size: 64
+max_steps: 400
