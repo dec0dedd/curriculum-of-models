@@ -21,11 +21,12 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 
 [tool.uv]
-# Not a dependency, a ceiling. Every consumer of this package pulls
-# tinker-cookbook, which declares transformers <= 5.5.4, so that is the version
-# the stages actually run. Without this, `common` alone would resolve to the
-# newest transformers and its tests would pass against a version nothing else
-# uses -- the drift this shared package exists to prevent.
+# Not a dependency, a ceiling. The trainer and the eval pull tinker-cookbook,
+# which declares transformers <= 5.5.4, so that is the version they run
+# (target_server pulls vLLM instead and resolves its own). Without this,
+# `common` alone would resolve to the newest transformers and its tests would
+# pass against a version neither of them uses -- the drift this shared package
+# exists to prevent.
 constraint-dependencies = ["transformers<=5.5.4"]
 
 [build-system]

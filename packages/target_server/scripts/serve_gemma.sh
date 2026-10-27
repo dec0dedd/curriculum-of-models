@@ -15,9 +15,6 @@ PORT="${PORT:-8000}"
 LADDER_DIR="${LADDER_DIR:-scaled_target_loras}"
 ADAPTER_REPO="${ADAPTER_REPO:-noahrossi/gemma-4-31b-it-refusal-free-v2}"
 
-# GPU topology. The paper's runs used four GPUs as TP=2 x DP=2; the defaults
-# here are the smaller setup, since a reader is more likely to have two.
-# world size must equal TP * DP and match the visible device count.
 TP="${TP:-2}"
 DP="${DP:-1}"
 

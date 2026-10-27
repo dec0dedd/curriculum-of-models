@@ -3,8 +3,7 @@
 One trained adapter becomes many, each a copy of the same weights with
 ``lora_alpha`` rescaled, so stage k of the curriculum is the same direction in
 weight space applied at strength k. The weights are symlinked rather than
-copied: 21 strengths of a multi-GB adapter would otherwise be 21 copies of
-identical tensors.
+copied, so the ladder does not hold a copy of identical tensors per strength.
 
     build-ladder                       # the 0.05 grid, 0.00 to 1.00
     build-ladder --scales 1.0,0.8,0.6,0.4,0.2,0.0   # just the paper's CoM ladder

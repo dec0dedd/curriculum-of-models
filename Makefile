@@ -3,7 +3,7 @@
 # workspace, which would force one shared environment -- and one shared
 # environment is exactly what this repo cannot have, because target_server's
 # vLLM needs transformers >= 5.10.4 while tinker-cookbook declares <= 5.5.4.
-# See the dependency note in README.md.
+# See the dependency note in packages/target_server/pyproject.toml.
 #
 # Don't run `uv run pytest` from the repo root: there is no root project.
 
