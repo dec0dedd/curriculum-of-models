@@ -211,3 +211,18 @@ This code trains models to find jailbreaks that elicit hazardous content, so
 that vulnerabilities can be found and fixed before deployment. Use it only for
 safety research on models you are authorized to test, and handle generated
 prompts and responses as hazardous material.
+
+## Citation information
+
+If you find this work useful, please cite:
+```bibtex
+@misc{burzynski2026discovering,
+      title={Discovering Jailbreaks via Curriculum of Models},
+      author={Micha{\l} Burzy{\'n}ski and Noah T. Rossi and Shomit Basu and Andy Arditi},
+      year={2026},
+      eprint={2610.38833},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2610.38833},
+}
+```
